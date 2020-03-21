@@ -1,4 +1,4 @@
-use crate::details::*;
+use crate::spec::*;
 
 #[test]
 fn decode() {

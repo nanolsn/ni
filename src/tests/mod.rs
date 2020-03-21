@@ -1,1 +1,1 @@
-mod details;
+mod spec;

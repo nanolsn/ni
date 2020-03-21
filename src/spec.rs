@@ -1,22 +1,13 @@
 const MASK: u8 = 0b0000_0011;
 const LONG_VALUE: u8 = 0b1000_0000;
 
-pub fn decode_x(byte: u8) -> u8 {
-    let x = byte & MASK;
-    x
-}
+pub fn decode_x(byte: u8) -> u8 { byte & MASK }
 
-pub fn decode_xy(byte: u8) -> (u8, u8) {
-    let x = byte & MASK;
-    let y = byte >> 2 & MASK;
-    (x, y)
-}
+pub fn decode_xy(byte: u8) -> (u8, u8) { (decode_x(byte), byte >> 2 & MASK) }
 
 pub fn decode_xyz(byte: u8) -> (u8, u8, u8) {
-    let x = byte & MASK;
-    let y = byte >> 2 & MASK;
-    let z = byte >> 4 & MASK;
-    (x, y, z)
+    let (x, y) = decode_xy(byte);
+    (x, y, byte >> 4 & MASK)
 }
 
 pub fn bytes_to_read(n: u8) -> usize {
