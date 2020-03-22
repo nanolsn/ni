@@ -2,7 +2,7 @@ use super::decode_utils::*;
 use super::operation::*;
 
 const CONST_BIT: u8 = 0b0100_0000;
-const NEXT_BIT: u8 = 0b0100_0000;
+const NEXT_BIT: u8 = 0b1000_0000;
 const RETVAL_BIT: u8 = 0b1000_0000;
 const LONG_BIT: u8 = 0b1000_0000;
 
