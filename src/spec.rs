@@ -1,7 +1,7 @@
 use super::decode_utils::*;
 
-const CONST_BIT: u8 = 0b1000_0000;
-const RETVAL_BIT: u8 = 0b0100_0000;
+pub const CONST_BIT: u8 = 0b0100_0000;
+pub const RETVAL_BIT: u8 = 0b1000_0000;
 
 #[derive(Copy, Clone, Debug)]
 pub struct SpecByte(pub u8);

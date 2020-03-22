@@ -1,23 +1,21 @@
-use crate::operation::OpSize::B1;
-
 #[derive(Copy, Clone, Debug)]
 pub enum Op {
     Nop,
-    Stop(Value<u64>),
-    Wait(Value<u64>),
-    Set(RetValue, Value<u64>, OpSize),
+    Stop(Value),
+    Wait(Value),
+    Set(RetValue, Value, OpSize),
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum Value<T> {
-    Ref(u32),
-    Const(T),
+pub enum Value {
+    Ref(usize),
+    Const(u64),
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum RetValue {
-    Ref(u32),
-    Return(u32),
+    Ref(usize),
+    Return(usize),
 }
 
 #[derive(Copy, Clone, Debug)]

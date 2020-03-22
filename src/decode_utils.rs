@@ -53,7 +53,7 @@ pub fn decode<I>(bytes: &mut I) -> Option<u64>
 
 use super::operation::*;
 
-pub fn decode_value<I>(bytes: &mut I) -> Option<Value<u64>>
+pub fn decode_value<I>(bytes: &mut I) -> Option<Value>
     where
         I: Iterator<Item=u8>,
 {
@@ -68,45 +68,79 @@ pub fn decode_value<I>(bytes: &mut I) -> Option<Value<u64>>
     if is_const(spec) {
         Some(Value::Const(val))
     } else {
-        Some(Value::Ref(val as u32))
+        Some(Value::Ref(val as usize))
     }
 }
 
 use super::instruction::*;
-use super::spec::SpecByte;
+use super::spec::*;
 
-pub fn decode_op<I>(op_code: u8, bytes: &mut I) -> Option<Op>
+pub enum OpDecodeError {
+    UnknownOpCode,
+    UnexpectedInputEnd,
+    IncorrectOpFormat(u8),
+}
+
+pub fn decode_op<I>(bytes: &mut I) -> Result<Op, OpDecodeError>
     where
         I: Iterator<Item=u8>,
 {
-    const CONST_BIT: u8 = 0b1000_0000;
-    const RETVAL_BIT: u8 = 0b0100_0000;
+    let op_code = bytes.next().ok_or(OpDecodeError::UnexpectedInputEnd)?;
 
     match op_code {
+        NOP => Ok(Op::Nop),
+        STOP => {
+            let spec = SpecByte(bytes.next().ok_or(OpDecodeError::UnexpectedInputEnd)?);
+
+            let x = spec.x_size();
+            let x_val = decode_u64(bytes, x).ok_or(OpDecodeError::UnexpectedInputEnd)?;
+
+            let val = if spec.check_bits(CONST_BIT) {
+                Value::Const(x_val)
+            } else {
+                Value::Ref(x_val as usize)
+            };
+
+            Ok(Op::Stop(val))
+        }
+        WAIT => {
+            let spec = SpecByte(bytes.next().ok_or(OpDecodeError::UnexpectedInputEnd)?);
+
+            let x = spec.x_size();
+            let x_val = decode_u64(bytes, x).ok_or(OpDecodeError::UnexpectedInputEnd)?;
+
+            let val = if spec.check_bits(CONST_BIT) {
+                Value::Const(x_val)
+            } else {
+                Value::Ref(x_val as usize)
+            };
+
+            Ok(Op::Wait(val))
+        }
         SET => {
-            let spec = SpecByte(bytes.next()?);
+            let spec = SpecByte(bytes.next().ok_or(OpDecodeError::UnexpectedInputEnd)?);
 
             let x = spec.x_size();
             let y = spec.y_size();
             let op_size = spec.z_size();
 
-            let x_val = decode_u64(bytes, x)?;
-            let y_val = decode_u64(bytes, y)?;
+            let x_val = decode_u64(bytes, x).ok_or(OpDecodeError::UnexpectedInputEnd)?;
+            let y_val = decode_u64(bytes, y).ok_or(OpDecodeError::UnexpectedInputEnd)?;
 
             let ret_value = if spec.check_bits(RETVAL_BIT) {
-                RetValue::Return(x_val as u32)
+                RetValue::Return(x_val as usize)
             } else {
-                RetValue::Ref(x_val as u32)
+                RetValue::Ref(x_val as usize)
             };
 
             let val = if spec.check_bits(CONST_BIT) {
                 Value::Const(y_val)
             } else {
-                Value::Ref(y_val as u32)
+                Value::Ref(y_val as usize)
             };
 
-            Some(Op::Set(ret_value, val, op_size.into()))
+            Ok(Op::Set(ret_value, val, op_size.into()))
         }
-        _ => None,
+        _ => Err(OpDecodeError::UnknownOpCode),
     }
 }
