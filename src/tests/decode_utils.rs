@@ -2,14 +2,17 @@ use crate::decode_utils::*;
 
 #[test]
 fn decode_test() {
-    assert_eq!(decode_x(0x00), 0);
-    assert_eq!(decode_x(0x01), 1);
+    assert_eq!(decode_x(0b1000_0100), 0);
+    assert_eq!(decode_x(0b0010_0001), 1);
 
-    assert_eq!(decode_xy(0x00), (0, 0));
-    assert_eq!(decode_xy(0x01), (1, 0));
-    assert_eq!(decode_xy(0b0000_1011), (3, 2));
+    assert_eq!(decode_y(0b1000_0001), 0);
+    assert_eq!(decode_y(0b0010_0100), 1);
 
-    assert_eq!(decode_xyz(0b0010_0111), (3, 1, 2));
+    assert_eq!(decode_z(0b1000_0100), 0);
+    assert_eq!(decode_z(0b0010_0001), 2);
+
+    assert_eq!(decode_w(0b1000_0001), 2);
+    assert_eq!(decode_w(0b0010_0100), 0);
 }
 
 #[test]
