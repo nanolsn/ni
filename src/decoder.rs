@@ -5,7 +5,7 @@ use super::byte_iterator::ByteIterator;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum OpExpected {
-    Instruction,
+    OpCode,
     Spec(usize),
     Operand(usize),
 }
@@ -13,11 +13,11 @@ pub enum OpExpected {
 #[derive(Debug, Eq, PartialEq)]
 pub enum OpDecodeError {
     UnknownOpCode,
-    UnexpectedInputEnd,
+    UnexpectedEnd(OpExpected),
 }
 
 impl From<OpExpected> for OpDecodeError {
-    fn from(_: OpExpected) -> Self { UnexpectedInputEnd }
+    fn from(err: OpExpected) -> Self { UnexpectedEnd(err) }
 }
 
 use OpDecodeError::*;
@@ -47,112 +47,102 @@ impl<'c> Iterator for Decoder<'c> {
     }
 }
 
-pub fn decode_bin_op<I>(input: &mut I) -> Option<(Ref, Value, Option<Ref>, OpSize)>
+macro_rules! decode_spec {
+    ($i:ident, $n:expr) => { Spec($i.next().ok_or(OpExpected::Spec($n))?) };
+    ($i:ident) => { decode_spec!($i, 0) };
+}
+
+pub fn decode_binop<I>(input: &mut I) -> Result<(Ref, Value, Option<Ref>, OpSize), OpExpected>
     where
         I: Iterator<Item=u8>,
 {
-    let spec = Spec(input.next()?);
+    let spec = decode_spec!(input);
 
-    let z = spec.and_next(input, |spec, input| {
-        Some(spec.x().short_or_read(input)?)
-    });
+    let z = if spec.is_next() {
+        let spec = decode_spec!(input, 1);
 
-    let y = spec.y().read(input)?;
-    let x = spec.x().read(input)?;
+        let z = spec.x().short_or_read(input).ok_or(OpExpected::Operand(2))?;
+        Some(z)
+    } else {
+        None
+    };
+
+    let y = spec.y().read(input).ok_or(OpExpected::Operand(1))?;
+    let x = spec.x().read(input).ok_or(OpExpected::Operand(0))?;
     let op_size = spec.z().to_op_size();
 
-    Some((x, y, z, op_size))
+    Ok((x, y, z, op_size))
 }
 
 pub fn decode_op<I>(input: &mut I) -> Result<Op, OpDecodeError>
     where
         I: Iterator<Item=u8>,
 {
-    let op_code = input.next().ok_or(UnexpectedInputEnd)?;
+    let op_code = input.next().ok_or(OpExpected::OpCode)?;
 
     match op_code {
         NOP => Ok(Op::Nop),
         STOP => {
-            let spec = Spec(input.next().ok_or(UnexpectedInputEnd)?);
+            let spec = decode_spec!(input);
 
-            let val = spec.x().short_or_read(input).ok_or(UnexpectedInputEnd)?;
+            let val = spec.x().short_or_read(input).ok_or(OpExpected::Operand(0))?;
 
             Ok(Op::Stop(val))
         }
         WAIT => {
-            let spec = Spec(input.next().ok_or(UnexpectedInputEnd)?);
+            let spec = decode_spec!(input);
 
-            let val = spec.x().short_or_read(input).ok_or(UnexpectedInputEnd)?;
+            let val = spec.x().short_or_read(input).ok_or(OpExpected::Operand(0))?;
 
             Ok(Op::Wait(val))
         }
         SET => {
-            let spec = Spec(input.next().ok_or(UnexpectedInputEnd)?);
+            let spec = decode_spec!(input);
 
-            let y = spec.y().read(input).ok_or(UnexpectedInputEnd)?;
-            let x = spec.x().read(input).ok_or(UnexpectedInputEnd)?;
+            let y = spec.y().read(input).ok_or(OpExpected::Operand(1))?;
+            let x = spec.x().read(input).ok_or(OpExpected::Operand(0))?;
             let op_size = spec.z().to_op_size();
 
             Ok(Op::Set(x, y, op_size))
         }
         ADD => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Add(x, y, z, op_size))
         }
         SUB => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Sub(x, y, z, op_size))
         }
         MUL => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Mul(x, y, z, op_size))
         }
         DIV => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Div(x, y, z, op_size))
         }
         MOD => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Mod(x, y, z, op_size))
         }
         MULS => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Muls(x, y, z, op_size))
         }
         DIVS => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Divs(x, y, z, op_size))
         }
         MODS => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Mods(x, y, z, op_size))
         }
         SHL => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Shl(x, y, z, op_size))
         }
         SHR => {
-            let (x, y, z, op_size) = decode_bin_op(input)
-                .ok_or(UnexpectedInputEnd)?;
-
+            let (x, y, z, op_size) = decode_binop(input)?;
             Ok(Op::Shr(x, y, z, op_size))
         }
         _ => Err(UnknownOpCode),

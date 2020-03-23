@@ -66,10 +66,13 @@ fn decode_op_err() {
     use OpDecodeError::*;
 
     let code = vec![0x01];
-    assert_eq!(decode(code), Err(UnexpectedInputEnd));
+    assert_eq!(decode(code), Err(UnexpectedEnd(OpExpected::Spec(0))));
 
     let code = vec![0x03, 0b1101_0000];
-    assert_eq!(decode(code), Err(UnexpectedInputEnd));
+    assert_eq!(decode(code), Err(UnexpectedEnd(OpExpected::Operand(1))));
+
+    let code = vec![0x03, 0b1101_0000, 0x0];
+    assert_eq!(decode(code), Err(UnexpectedEnd(OpExpected::Operand(0))));
 
     let code = vec![0xFF];
     assert_eq!(decode(code), Err(UnknownOpCode));
