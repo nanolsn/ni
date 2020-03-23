@@ -47,9 +47,9 @@ impl<'c> Iterator for Decoder<'c> {
     }
 }
 
-pub fn decode_binop<I>(input: &mut I) -> Result<(Ref, Value, Option<Ref>, OpSize), OpExpected>
+pub fn decode_binop<F>(f: F, input: &mut ByteIterator) -> Result<Op, OpDecodeError>
     where
-        I: Iterator<Item=u8>,
+        F: FnOnce(Ref, Value, Option<Ref>, OpSize) -> Op,
 {
     let spec = Spec(input.next().ok_or(OpExpected::Spec(0))?);
 
@@ -66,13 +66,10 @@ pub fn decode_binop<I>(input: &mut I) -> Result<(Ref, Value, Option<Ref>, OpSize
     let x = spec.x().read(input).ok_or(OpExpected::Operand(0))?;
     let op_size = spec.z().to_op_size();
 
-    Ok((x, y, z, op_size))
+    Ok(f(x, y, z, op_size))
 }
 
-pub fn decode_op<I>(input: &mut I) -> Result<Op, OpDecodeError>
-    where
-        I: Iterator<Item=u8>,
-{
+pub fn decode_op(input: &mut ByteIterator) -> Result<Op, OpDecodeError> {
     let op_code = input.next().ok_or(OpExpected::OpCode)?;
 
     match op_code {
@@ -100,46 +97,16 @@ pub fn decode_op<I>(input: &mut I) -> Result<Op, OpDecodeError>
 
             Ok(Op::Set(x, y, op_size))
         }
-        ADD => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Add(x, y, z, op_size))
-        }
-        SUB => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Sub(x, y, z, op_size))
-        }
-        MUL => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Mul(x, y, z, op_size))
-        }
-        DIV => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Div(x, y, z, op_size))
-        }
-        MOD => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Mod(x, y, z, op_size))
-        }
-        MULS => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Muls(x, y, z, op_size))
-        }
-        DIVS => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Divs(x, y, z, op_size))
-        }
-        MODS => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Mods(x, y, z, op_size))
-        }
-        SHL => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Shl(x, y, z, op_size))
-        }
-        SHR => {
-            let (x, y, z, op_size) = decode_binop(input)?;
-            Ok(Op::Shr(x, y, z, op_size))
-        }
+        ADD => decode_binop(Op::Add, input),
+        SUB => decode_binop(Op::Sub, input),
+        MUL => decode_binop(Op::Mul, input),
+        DIV => decode_binop(Op::Div, input),
+        MOD => decode_binop(Op::Mod, input),
+        MULS => decode_binop(Op::Muls, input),
+        DIVS => decode_binop(Op::Divs, input),
+        MODS => decode_binop(Op::Mods, input),
+        SHL => decode_binop(Op::Shl, input),
+        SHR => decode_binop(Op::Shr, input),
         _ => Err(UnknownOpCode),
     }
 }

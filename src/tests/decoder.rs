@@ -1,7 +1,10 @@
 use crate::decoder::*;
 use crate::operation::*;
 
-fn decode(bytes: Vec<u8>) -> Result<Op, OpDecodeError> { decode_op(&mut bytes.into_iter()) }
+fn decode(bytes: Vec<u8>) -> Result<Op, OpDecodeError> {
+    let mut decoder = Decoder::new(bytes.as_slice());
+    decoder.decode()
+}
 
 #[test]
 fn decode_op_test() {
