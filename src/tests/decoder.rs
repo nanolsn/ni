@@ -1,22 +1,7 @@
-use crate::decode_utils::*;
+use crate::decoder::*;
 use crate::operation::*;
 
 fn decode(bytes: Vec<u8>) -> Result<Op, OpDecodeError> { decode_op(&mut bytes.into_iter()) }
-
-#[test]
-fn decode_test() {
-    assert_eq!(decode_x(0b1000_0100), 0);
-    assert_eq!(decode_x(0b0010_0001), 1);
-
-    assert_eq!(decode_y(0b1000_0001), 0);
-    assert_eq!(decode_y(0b0010_0100), 1);
-
-    assert_eq!(decode_z(0b1000_0100), 0);
-    assert_eq!(decode_z(0b0010_0001), 2);
-
-    assert_eq!(decode_w(0b1000_0001), 2);
-    assert_eq!(decode_w(0b0010_0100), 0);
-}
 
 #[test]
 fn decode_op_test() {
@@ -42,38 +27,38 @@ fn decode_op_test() {
 
     let code = vec![0x03, 0b1100_0000, 0x7, 0x0]; // set b1 ret(0) const(7)
     let set = decode(code).unwrap();
-    assert_eq!(set, Op::Set(RefRet::Return(0), Value::Const(7), 1));
+    assert_eq!(set, Op::Set(RefRet::Return(0), Value::Const(7), OpSize::B1));
 
     let code = vec![0x03, 0b0001_0100, 0x0, 0x1, 0x1]; // set b2 ref(1) ref(256)
     let set = decode(code).unwrap();
-    assert_eq!(set, Op::Set(RefRet::Ref(1), Value::Ref(256), 2));
+    assert_eq!(set, Op::Set(RefRet::Ref(1), Value::Ref(256), OpSize::B2));
 
     let code = vec![0x03, 0b1101_1000, 0x1, 0x1, 0x0, 0x0, 0x5]; // set b2 ret(5) const(257)
     let set = decode(code).unwrap();
-    assert_eq!(set, Op::Set(RefRet::Return(5), Value::Const(257), 2));
+    assert_eq!(set, Op::Set(RefRet::Return(5), Value::Const(257), OpSize::B2));
 }
 
 #[test]
 fn decode_op_test2() {
     let code = vec![0x04, 0b0000_0000, 0x7, 0x0]; // add b1 0 ref(7)
     let add = decode(code).unwrap();
-    assert_eq!(add, Op::Add(Ref(0), Value::Ref(7), None, 1));
+    assert_eq!(add, Op::Add(Ref(0), Value::Ref(7), None, OpSize::B1));
 
     let code = vec![0x04, 0b1101_0000, 0x4, 0x7, 0x0]; // add b2 0 const(7) 4
     let add = decode(code).unwrap();
-    assert_eq!(add, Op::Add(Ref(0), Value::Const(7), Some(Ref(4)), 2));
+    assert_eq!(add, Op::Add(Ref(0), Value::Const(7), Some(Ref(4)), OpSize::B2));
 
     let code = vec![0x04, 0b1101_0000, 0b1000_0000, 0x4, 0x7, 0x0]; // add b2 0 const(7) 4
     let add = decode(code).unwrap();
-    assert_eq!(add, Op::Add(Ref(0), Value::Const(7), Some(Ref(4)), 2));
+    assert_eq!(add, Op::Add(Ref(0), Value::Const(7), Some(Ref(4)), OpSize::B2));
 
     let code = vec![0x05, 0b0010_0100, 0x7, 0x0, 0x1]; // sub b4 1 ref(7)
     let sub = decode(code).unwrap();
-    assert_eq!(sub, Op::Sub(Ref(1), Value::Ref(7), None, 4));
+    assert_eq!(sub, Op::Sub(Ref(1), Value::Ref(7), None, OpSize::B4));
 
     let code = vec![0x05, 0b0111_0100, 0x7, 0x0, 0x1]; // sub b8 1 const(7)
     let sub = decode(code).unwrap();
-    assert_eq!(sub, Op::Sub(Ref(1), Value::Const(7), None, 8));
+    assert_eq!(sub, Op::Sub(Ref(1), Value::Const(7), None, OpSize::B8));
 }
 
 #[test]

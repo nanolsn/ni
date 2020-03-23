@@ -1,40 +1,6 @@
-const SIZE_MASK: u8 = 0b0000_0011;
-
-pub fn decode_x(byte: u8) -> u8 { byte & SIZE_MASK }
-
-pub fn decode_y(byte: u8) -> u8 { byte >> 2 & SIZE_MASK }
-
-pub fn decode_z(byte: u8) -> u8 { byte >> 4 & SIZE_MASK }
-
-pub fn decode_w(byte: u8) -> u8 { byte >> 6 & SIZE_MASK }
-
-pub fn to_size(n: u8) -> usize {
-    match n {
-        0 => 1,
-        1 => 2,
-        2 => 4,
-        3 => 8,
-        _ => panic!("Undefined number of bytes"),
-    }
-}
-
-pub fn decode_u64<I>(bytes: &mut I, count: usize) -> Option<u64>
-    where
-        I: Iterator<Item=u8>,
-{
-    const U64_SIZE: usize = std::mem::size_of::<u64>();
-    let mut bs: [u8; U64_SIZE] = [0; U64_SIZE];
-
-    for i in 0..count {
-        bs[i] = bytes.next()?;
-    }
-
-    Some(u64::from_le_bytes(bs))
-}
-
 use super::operation::*;
 use super::instruction::*;
-use super::spec::Spec;
+use super::spec::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum OpDecodeError {
@@ -45,24 +11,33 @@ pub enum OpDecodeError {
 
 use OpDecodeError::*;
 
-pub fn decode_bin_op<I>(input: &mut I) -> Option<(Ref, Value, Option<Ref>, usize)>
+#[derive(Debug)]
+pub struct Decoder<'c> {
+    code: &'c [u8],
+    pos: usize,
+}
+
+impl<'c> Decoder<'c> {
+    pub fn new(code: &'c [u8]) -> Self { Decoder { code, pos: 0 } }
+
+    pub fn decode(&mut self) -> Result<Op, OpDecodeError> {
+        todo!()
+    }
+}
+
+pub fn decode_bin_op<I>(input: &mut I) -> Option<(Ref, Value, Option<Ref>, OpSize)>
     where
         I: Iterator<Item=u8>,
 {
     let spec = Spec(input.next()?);
 
-    let z = if spec.is_next() {
-        let spec = Spec(input.next()?);
-
-        let z = spec.x().short_or_read(input)?;
-        Some(z)
-    } else {
-        None
-    };
+    let z = spec.and_next(input, |spec, input| {
+        Some(spec.x().short_or_read(input)?)
+    });
 
     let y = spec.y().read(input)?;
     let x = spec.x().read(input)?;
-    let op_size = spec.z().to_size();
+    let op_size = spec.z().to_op_size();
 
     Some((x, y, z, op_size))
 }
@@ -94,7 +69,7 @@ pub fn decode_op<I>(input: &mut I) -> Result<Op, OpDecodeError>
 
             let y = spec.y().read(input).ok_or(UnexpectedInputEnd)?;
             let x = spec.x().read(input).ok_or(UnexpectedInputEnd)?;
-            let op_size = spec.z().to_size();
+            let op_size = spec.z().to_op_size();
 
             Ok(Op::Set(x, y, op_size))
         }
