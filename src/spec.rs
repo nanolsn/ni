@@ -1,4 +1,5 @@
 use super::operation::*;
+use crate::decoder::{OpDecodeError, OpExpected};
 
 const SIZE_MASK: u8 = 0b0000_0011;
 const CONST_BIT: u8 = 0b0100_0000;
@@ -7,50 +8,63 @@ const RETVAL_BIT: u8 = 0b1000_0000;
 const LONG_BIT: u8 = 0b1000_0000;
 
 #[derive(Copy, Clone, Debug)]
-pub struct Spec(pub u8);
+pub struct Spec {
+    byte: u8,
+    idx: usize,
+}
 
 impl Spec {
-    fn field(self, field: u8) -> SpecField { SpecField { field, spec: self } }
+    fn field(self, field: u8, idx: usize) -> SpecField { SpecField { field, idx, spec: self } }
 
-    fn decode_x(self) -> u8 { self.0 & SIZE_MASK }
-    fn decode_y(self) -> u8 { self.0 >> 2 & SIZE_MASK }
-    fn decode_z(self) -> u8 { self.0 >> 4 & SIZE_MASK }
-    fn decode_w(self) -> u8 { self.0 >> 6 & SIZE_MASK }
+    fn decode_x(self) -> u8 { self.byte & SIZE_MASK }
+    fn decode_y(self) -> u8 { self.byte >> 2 & SIZE_MASK }
+    fn decode_z(self) -> u8 { self.byte >> 4 & SIZE_MASK }
+    fn decode_w(self) -> u8 { self.byte >> 6 & SIZE_MASK }
 
-    pub fn x(self) -> SpecField { self.field(self.decode_x()) }
-    pub fn y(self) -> SpecField { self.field(self.decode_y()) }
-    pub fn z(self) -> SpecField { self.field(self.decode_z()) }
-    pub fn w(self) -> SpecField { self.field(self.decode_w()) }
+    pub fn x(self) -> SpecField { self.field(self.decode_x(), self.idx * 2) }
+    pub fn y(self) -> SpecField { self.field(self.decode_y(), self.idx * 2 + 1) }
+    pub fn z(self) -> SpecField { self.field(self.decode_z(), self.idx * 2 + 2) }
+    pub fn w(self) -> SpecField { self.field(self.decode_w(), self.idx * 2 + 3) }
 
-    pub fn check_bits(self, mask: u8) -> bool { self.0 & mask != 0 }
+    pub fn check_bits(self, mask: u8) -> bool { self.byte & mask != 0 }
 
     pub fn is_const(self) -> bool { self.check_bits(CONST_BIT) }
     pub fn is_next(self) -> bool { self.check_bits(NEXT_BIT) }
     pub fn is_retval(self) -> bool { self.check_bits(RETVAL_BIT) }
     pub fn is_long(self) -> bool { self.check_bits(LONG_BIT) }
 
-    pub fn and_next<T, I, F>(self, bytes: &mut I, f: F) -> Option<T>
+    fn from_bytes<I>(bytes: &mut I, idx: usize) -> Result<Self, OpDecodeError>
         where
-            F: FnOnce(Spec, &mut I) -> Option<T>,
+            I: Iterator<Item=u8>,
+    {
+        Ok(Spec {
+            byte: bytes.next().ok_or(OpDecodeError::UnexpectedEnd(OpExpected::Spec(idx)))?,
+            idx,
+        })
+    }
+
+    pub fn from<I>(bytes: &mut I) -> Result<Self, OpDecodeError>
+        where
+            I: Iterator<Item=u8>,
+    { Spec::from_bytes(bytes, 0) }
+
+    pub fn next<I>(self, bytes: &mut I) -> Result<Option<Self>, OpDecodeError>
+        where
             I: Iterator<Item=u8>,
     {
         if self.is_next() {
-            let spec = Spec(bytes.next()?);
-            f(spec, bytes)
+            Ok(Some(Spec::from_bytes(bytes, self.idx + 1)?))
         } else {
-            None
+            Ok(None)
         }
     }
 }
 
-impl From<u8> for Spec {
-    fn from(byte: u8) -> Self { Spec(byte) }
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct SpecField {
-    pub field: u8,
-    pub spec: Spec,
+    field: u8,
+    idx: usize,
+    spec: Spec,
 }
 
 impl SpecField {
@@ -58,11 +72,14 @@ impl SpecField {
 
     pub fn to_op_size(self) -> OpSize { self.field.into() }
 
-    pub fn read<T, I>(self, bytes: &mut I) -> Option<T>
+    pub fn read<T, I>(self, bytes: &mut I) -> Result<T, OpDecodeError>
         where
             I: Iterator<Item=u8>,
             Self: Read<T>,
-    { Read::<T>::read(self, bytes) }
+    {
+        Read::<T>::read(self, bytes)
+            .ok_or(OpDecodeError::UnexpectedEnd(OpExpected::Operand(self.idx)))
+    }
 
     fn read_u64<I>(self, bytes: &mut I) -> Option<u64>
         where
@@ -103,16 +120,16 @@ impl SpecField {
         Some(Ref(val as usize))
     }
 
-    pub fn short_or_read<T, I>(self, bytes: &mut I) -> Option<T>
+    pub fn short_or_read<T, I>(self, bytes: &mut I) -> Result<T, OpDecodeError>
         where
             I: Iterator<Item=u8>,
             T: From<u8>,
             Self: Read<T>,
     {
         if self.spec.is_long() {
-            Some(self.read(bytes)?)
+            Ok(self.read(bytes)?)
         } else {
-            Some(self.spec.0.into())
+            Ok(self.spec.byte.into())
         }
     }
 }
