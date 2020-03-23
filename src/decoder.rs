@@ -1,27 +1,49 @@
 use super::operation::*;
 use super::instruction::*;
 use super::spec::*;
+use super::byte_iterator::ByteIterator;
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum OpExpected {
+    Instruction,
+    Spec(usize),
+    Operand(usize),
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum OpDecodeError {
     UnknownOpCode,
     UnexpectedInputEnd,
-    IncorrectOpFormat(u8),
+}
+
+impl From<OpExpected> for OpDecodeError {
+    fn from(_: OpExpected) -> Self { UnexpectedInputEnd }
 }
 
 use OpDecodeError::*;
 
 #[derive(Debug)]
 pub struct Decoder<'c> {
-    code: &'c [u8],
-    pos: usize,
+    code: ByteIterator<'c>,
 }
 
 impl<'c> Decoder<'c> {
-    pub fn new(code: &'c [u8]) -> Self { Decoder { code, pos: 0 } }
+    pub fn new(code: &'c [u8]) -> Self { Decoder { code: ByteIterator::new(code) } }
 
-    pub fn decode(&mut self) -> Result<Op, OpDecodeError> {
-        todo!()
+    pub fn decode(&mut self) -> Result<Op, OpDecodeError> { decode_op(&mut self.code) }
+
+    pub fn end(&self) -> bool { self.code.end() }
+}
+
+impl<'c> Iterator for Decoder<'c> {
+    type Item = Result<Op, OpDecodeError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.end() {
+            Some(self.decode())
+        } else {
+            None
+        }
     }
 }
 
