@@ -47,19 +47,14 @@ impl<'c> Iterator for Decoder<'c> {
     }
 }
 
-macro_rules! decode_spec {
-    ($i:ident, $n:expr) => { Spec($i.next().ok_or(OpExpected::Spec($n))?) };
-    ($i:ident) => { decode_spec!($i, 0) };
-}
-
 pub fn decode_binop<I>(input: &mut I) -> Result<(Ref, Value, Option<Ref>, OpSize), OpExpected>
     where
         I: Iterator<Item=u8>,
 {
-    let spec = decode_spec!(input);
+    let spec = Spec(input.next().ok_or(OpExpected::Spec(0))?);
 
     let z = if spec.is_next() {
-        let spec = decode_spec!(input, 1);
+        let spec = Spec(input.next().ok_or(OpExpected::Spec(1))?);
 
         let z = spec.x().short_or_read(input).ok_or(OpExpected::Operand(2))?;
         Some(z)
@@ -83,21 +78,21 @@ pub fn decode_op<I>(input: &mut I) -> Result<Op, OpDecodeError>
     match op_code {
         NOP => Ok(Op::Nop),
         STOP => {
-            let spec = decode_spec!(input);
+            let spec = Spec(input.next().ok_or(OpExpected::Spec(0))?);
 
             let val = spec.x().short_or_read(input).ok_or(OpExpected::Operand(0))?;
 
             Ok(Op::Stop(val))
         }
         WAIT => {
-            let spec = decode_spec!(input);
+            let spec = Spec(input.next().ok_or(OpExpected::Spec(0))?);
 
             let val = spec.x().short_or_read(input).ok_or(OpExpected::Operand(0))?;
 
             Ok(Op::Wait(val))
         }
         SET => {
-            let spec = decode_spec!(input);
+            let spec = Spec(input.next().ok_or(OpExpected::Spec(0))?);
 
             let y = spec.y().read(input).ok_or(OpExpected::Operand(1))?;
             let x = spec.x().read(input).ok_or(OpExpected::Operand(0))?;

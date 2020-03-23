@@ -68,6 +68,9 @@ fn decode_op_err() {
     let code = vec![0x01];
     assert_eq!(decode(code), Err(UnexpectedEnd(OpExpected::Spec(0))));
 
+    let code = vec![0x04, 0b1101_0000];
+    assert_eq!(decode(code), Err(UnexpectedEnd(OpExpected::Spec(1))));
+
     let code = vec![0x03, 0b1101_0000];
     assert_eq!(decode(code), Err(UnexpectedEnd(OpExpected::Operand(1))));
 
