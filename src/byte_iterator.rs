@@ -7,7 +7,7 @@ pub struct ByteIterator<'a> {
 impl<'a> ByteIterator<'a> {
     pub fn new(bytes: &'a [u8]) -> Self { ByteIterator { bytes, pos: 0 } }
 
-    pub fn get(&self) -> Option<u8> { self.bytes.get(self.pos).map(|&p| p) }
+    pub fn get(&self) -> Option<u8> { self.bytes.get(self.pos).cloned() }
 
     pub fn pos(&self) -> usize { self.pos }
 

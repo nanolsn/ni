@@ -47,7 +47,7 @@ impl<'c> Iterator for Decoder<'c> {
     }
 }
 
-pub fn decode_binop<F>(f: F, code: &mut ByteIterator) -> Result<Op, OpDecodeError>
+pub fn decode_binop<F>(op: F, code: &mut ByteIterator) -> Result<Op, OpDecodeError>
     where
         F: FnOnce(Ref, Value, Option<Ref>, OpSize) -> Op,
 {
@@ -64,7 +64,7 @@ pub fn decode_binop<F>(f: F, code: &mut ByteIterator) -> Result<Op, OpDecodeErro
     let x = spec.x().read(code)?;
     let op_size = spec.z().to_op_size();
 
-    Ok(f(x, y, z, op_size))
+    Ok(op(x, y, z, op_size))
 }
 
 pub fn decode_op(code: &mut ByteIterator) -> Result<Op, OpDecodeError> {
