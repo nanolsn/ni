@@ -1,4 +1,6 @@
-mod op_codes {
+use super::decoder::DecodeError;
+
+pub mod op_codes {
     pub const NOP: u8 = 0x00;
     pub const STOP: u8 = 0x01;
     pub const WAIT: u8 = 0x02;
@@ -12,7 +14,7 @@ mod op_codes {
     pub const SHR: u8 = 0x0A;
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Operand {
     Loc(usize),
     Ind(usize),
@@ -21,21 +23,25 @@ pub enum Operand {
     Ref(usize),
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct BinOp {
     first: Operand,
     first_offset: Option<Operand>,
     second: Operand,
     second_offset: Option<Operand>,
+    op_type: OpType,
+    mode: Mode,
 }
 
 impl BinOp {
-    pub fn bin(first: Operand, second: Operand) -> Self {
+    pub fn bin(first: Operand, second: Operand, op_type: OpType, mode: Mode) -> Self {
         Self {
             first,
             first_offset: None,
             second,
             second_offset: None,
+            op_type,
+            mode,
         }
     }
 
@@ -50,7 +56,7 @@ impl BinOp {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Op {
     Nop,
     Stop,
@@ -65,7 +71,7 @@ pub enum Op {
     Shr(BinOp),
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum OpType {
     U8,
     I8,
@@ -80,7 +86,7 @@ pub enum OpType {
 }
 
 impl std::convert::TryFrom<u8> for OpType {
-    type Error = ();
+    type Error = DecodeError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         use OpType::*;
@@ -96,12 +102,12 @@ impl std::convert::TryFrom<u8> for OpType {
             7 => I64,
             8 => Uw,
             9 => Iw,
-            _ => return Err(()),
+            _ => return Err(DecodeError::UndefinedOpType),
         });
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Mode {
     Overflowed,
     Saturated,
@@ -113,9 +119,18 @@ impl Default for Mode {
     fn default() -> Self { Mode::Overflowed }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Operation {
-    op: Op,
-    op_type: OpType,
-    mode: Mode,
+impl std::convert::TryFrom<u8> for Mode {
+    type Error = DecodeError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        use Mode::*;
+
+        return Ok(match value {
+            0 => Overflowed,
+            1 => Saturated,
+            2 => Wide,
+            3 => Trigger,
+            _ => return Err(DecodeError::UndefinedMode),
+        });
+    }
 }

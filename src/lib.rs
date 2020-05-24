@@ -1,2 +1,5 @@
-pub mod byte_iterator;
-pub mod operations;
+mod byte_iterator;
+mod decoder;
+mod operations;
+
+pub use operations::*;
