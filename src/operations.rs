@@ -1,7 +1,10 @@
-use super::{
-    decoder::DecodeError,
-    Decode,
-};
+#[derive(Debug, Eq, PartialEq)]
+pub enum UndefinedOperation {
+    Mode,
+    OpType,
+    Kind,
+    Variant,
+}
 
 pub mod op_codes {
     pub const NOP: u8 = 0x00;
@@ -24,6 +27,25 @@ pub enum Operand {
     Ret(usize),
     Val(usize),
     Ref(usize),
+}
+
+impl Operand {
+    pub fn new(value: usize, kind: u8) -> Result<Self, UndefinedOperation> {
+        use Operand::*;
+
+        Ok(match kind {
+            0 => Loc(value),
+            1 => Ind(value),
+            2 => Ret(value),
+            3 => Val(value),
+            4 => Ref(value),
+            _ => return Err(UndefinedOperation::Kind),
+        })
+    }
+}
+
+impl From<u8> for Operand {
+    fn from(byte: u8) -> Self { Operand::Loc(byte as usize) }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -86,6 +108,13 @@ pub enum Op {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub struct Spec {
+    pub op_type: OpType,
+    pub mode: Mode,
+    pub variant: Variant,
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub enum OpType {
     U8,
     I8,
@@ -99,13 +128,11 @@ pub enum OpType {
     Iw,
 }
 
-impl std::convert::TryFrom<u8> for OpType {
-    type Error = DecodeError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+impl OpType {
+    pub fn new(value: u8) -> Result<Self, UndefinedOperation> {
         use OpType::*;
 
-        return Ok(match value {
+        Ok(match value {
             0 => U8,
             1 => I8,
             2 => U16,
@@ -116,8 +143,8 @@ impl std::convert::TryFrom<u8> for OpType {
             7 => I64,
             8 => Uw,
             9 => Iw,
-            _ => return Err(DecodeError::UndefinedOpType),
-        });
+            _ => return Err(UndefinedOperation::OpType),
+        })
     }
 }
 
@@ -129,22 +156,42 @@ pub enum Mode {
     Trigger,
 }
 
-impl Default for Mode {
-    fn default() -> Self { Mode::Overflowed }
-}
-
-impl std::convert::TryFrom<u8> for Mode {
-    type Error = DecodeError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+impl Mode {
+    pub fn new(value: u8) -> Result<Self, UndefinedOperation> {
         use Mode::*;
 
-        return Ok(match value {
+        Ok(match value {
             0 => Overflowed,
             1 => Saturated,
             2 => Wide,
             3 => Trigger,
-            _ => return Err(DecodeError::UndefinedMode),
-        });
+            _ => return Err(UndefinedOperation::Mode),
+        })
+    }
+}
+
+impl Default for Mode {
+    fn default() -> Self { Mode::Overflowed }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum Variant {
+    XY,
+    XOffsetY,
+    XYOffset,
+    XOffsetYOffset,
+}
+
+impl Variant {
+    pub fn new(variant: u8) -> Result<Self, UndefinedOperation> {
+        use Variant::*;
+
+        Ok(match variant {
+            0 => XY,
+            1 => XOffsetY,
+            2 => XYOffset,
+            3 => XOffsetYOffset,
+            _ => return Err(UndefinedOperation::Variant),
+        })
     }
 }

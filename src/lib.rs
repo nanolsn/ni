@@ -1,4 +1,3 @@
-mod byte_iterator;
 mod decode;
 mod decoder;
 mod operations;
