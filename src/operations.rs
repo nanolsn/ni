@@ -1,4 +1,7 @@
-use super::decoder::DecodeError;
+use super::{
+    decoder::DecodeError,
+    Decode,
+};
 
 pub mod op_codes {
     pub const NOP: u8 = 0x00;
@@ -24,34 +27,45 @@ pub enum Operand {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub struct UnOp {
+    x: Operand,
+    x_offset: Option<Operand>,
+}
+
+impl UnOp {
+    pub fn new(x: Operand) -> Self { Self { x, x_offset: None } }
+
+    pub fn with_x_offset(mut self, x_offset: Operand) -> Self {
+        self.x_offset = Some(x_offset);
+        self
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub struct BinOp {
-    first: Operand,
-    first_offset: Option<Operand>,
-    second: Operand,
-    second_offset: Option<Operand>,
-    op_type: OpType,
-    mode: Mode,
+    x: Operand,
+    x_offset: Option<Operand>,
+    y: Operand,
+    y_offset: Option<Operand>,
 }
 
 impl BinOp {
-    pub fn bin(first: Operand, second: Operand, op_type: OpType, mode: Mode) -> Self {
+    pub fn bin(x: Operand, y: Operand) -> Self {
         Self {
-            first,
-            first_offset: None,
-            second,
-            second_offset: None,
-            op_type,
-            mode,
+            x,
+            x_offset: None,
+            y,
+            y_offset: None,
         }
     }
 
-    pub fn with_first_offset(mut self, first_offset: Operand) -> Self {
-        self.first_offset = Some(first_offset);
+    pub fn with_x_offset(mut self, x_offset: Operand) -> Self {
+        self.x_offset = Some(x_offset);
         self
     }
 
-    pub fn with_second_offset(mut self, second_offset: Operand) -> Self {
-        self.second_offset = Some(second_offset);
+    pub fn with_y_offset(mut self, y_offset: Operand) -> Self {
+        self.y_offset = Some(y_offset);
         self
     }
 }
@@ -59,16 +73,16 @@ impl BinOp {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Op {
     Nop,
-    Stop,
-    Wait,
-    Set(BinOp),
-    Add(BinOp),
-    Sub(BinOp),
-    Mul(BinOp),
-    Div(BinOp),
-    Mod(BinOp),
-    Shl(BinOp),
-    Shr(BinOp),
+    Stop(UnOp),
+    Wait(UnOp),
+    Set(BinOp, OpType, Mode),
+    Add(BinOp, OpType, Mode),
+    Sub(BinOp, OpType, Mode),
+    Mul(BinOp, OpType, Mode),
+    Div(BinOp, OpType, Mode),
+    Mod(BinOp, OpType, Mode),
+    Shl(BinOp, OpType, Mode),
+    Shr(BinOp, OpType, Mode),
 }
 
 #[derive(Debug, Eq, PartialEq)]
