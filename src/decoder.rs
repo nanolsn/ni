@@ -58,8 +58,8 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
             Op::Shl(b, op_type, mode)
         }
         SHR => {
-            let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
-            Op::Shr(b, op_type)
+            let (Spec { op_type, mode, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Shr(b, op_type, mode)
         }
         _ => return Err(DecodeError::UnknownOpCode),
     };
@@ -186,13 +186,13 @@ mod tests {
     fn decode_long() {
         let code = [
             0x04_u8, 0b0000_0100, 0b1000_0001, 8, 0, 0b1001_0000, 16,
-            // add over u32 loc(8) ind(16)
+            // add wrap u32 loc(8) ind(16)
         ];
 
         let expected = Op::Add(
             BinOp::bin(Operand::Loc(8), Operand::Ind(16)),
             OpType::U32,
-            Mode::Overflowed,
+            Mode::Wrap,
         );
 
         let mut it = code.iter().cloned();
@@ -212,7 +212,7 @@ mod tests {
         let expected = Op::Set(
             BinOp::bin(Operand::Ret(8), Operand::Ref(16)).with_x_offset(Operand::Val(5)),
             OpType::U32,
-            Mode::Saturated,
+            Mode::Sat,
         );
 
         let mut it = code.iter().cloned();

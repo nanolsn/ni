@@ -104,7 +104,7 @@ pub enum Op {
     Div(BinOp, OpType),
     Mod(BinOp, OpType),
     Shl(BinOp, OpType, Mode),
-    Shr(BinOp, OpType),
+    Shr(BinOp, OpType, Mode),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -150,10 +150,10 @@ impl OpType {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Mode {
-    Overflowed,
-    Saturated,
+    Wrap,
+    Sat,
     Wide,
-    Trigger,
+    Hand,
 }
 
 impl Mode {
@@ -161,17 +161,17 @@ impl Mode {
         use Mode::*;
 
         Ok(match value {
-            0 => Overflowed,
-            1 => Saturated,
+            0 => Wrap,
+            1 => Sat,
             2 => Wide,
-            3 => Trigger,
+            3 => Hand,
             _ => return Err(UndefinedOperation::Mode),
         })
     }
 }
 
 impl Default for Mode {
-    fn default() -> Self { Mode::Overflowed }
+    fn default() -> Self { Mode::Wrap }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
