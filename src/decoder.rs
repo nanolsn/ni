@@ -30,8 +30,8 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
             Op::Wait(UnOp::new(x))
         }
         SET => {
-            let (Spec { op_type, mode, .. }, b) = decode_spec_bin_op(bytes)?;
-            Op::Set(b, op_type, mode)
+            let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Set(b, op_type)
         }
         ADD => {
             let (Spec { op_type, mode, .. }, b) = decode_spec_bin_op(bytes)?;
@@ -166,13 +166,12 @@ mod tests {
     fn decode_short() {
         let code = [
             0x03_u8, 0b0010_0011, 8, 16,
-            // set wide i16 loc(8) loc(16)
+            // set i16 loc(8) loc(16)
         ];
 
         let expected = Op::Set(
             BinOp::bin(Operand::Loc(8), Operand::Loc(16)),
             OpType::I16,
-            Mode::Wide,
         );
 
         let mut it = code.iter().cloned();
@@ -186,13 +185,13 @@ mod tests {
     fn decode_long() {
         let code = [
             0x04_u8, 0b0000_0100, 0b1000_0001, 8, 0, 0b1001_0000, 16,
-            // add wrap u32 loc(8) ind(16)
+            // add u32 loc(8) ind(16)
         ];
 
         let expected = Op::Add(
             BinOp::bin(Operand::Loc(8), Operand::Ind(16)),
             OpType::U32,
-            Mode::Wrap,
+            Mode::default(),
         );
 
         let mut it = code.iter().cloned();
@@ -206,13 +205,12 @@ mod tests {
     fn decode_xo_y() {
         let code = [
             0x03_u8, 0b0101_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
-            // set sat u32 ret(8):val(5) ref(16)
+            // set u32 ret(8):val(5) ref(16)
         ];
 
         let expected = Op::Set(
             BinOp::bin(Operand::Ret(8), Operand::Ref(16)).with_x_offset(Operand::Val(5)),
             OpType::U32,
-            Mode::Sat,
         );
 
         let mut it = code.iter().cloned();

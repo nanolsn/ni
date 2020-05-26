@@ -97,7 +97,7 @@ pub enum Op {
     Nop,
     Stop(UnOp),
     Wait(UnOp),
-    Set(BinOp, OpType, Mode),
+    Set(BinOp, OpType),
     Add(BinOp, OpType, Mode),
     Sub(BinOp, OpType, Mode),
     Mul(BinOp, OpType, Mode),
