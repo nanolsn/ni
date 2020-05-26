@@ -101,10 +101,10 @@ pub enum Op {
     Add(BinOp, OpType, Mode),
     Sub(BinOp, OpType, Mode),
     Mul(BinOp, OpType, Mode),
-    Div(BinOp, OpType, Mode),
-    Mod(BinOp, OpType, Mode),
+    Div(BinOp, OpType),
+    Mod(BinOp, OpType),
     Shl(BinOp, OpType, Mode),
-    Shr(BinOp, OpType, Mode),
+    Shr(BinOp, OpType),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -174,7 +174,7 @@ impl Default for Mode {
     fn default() -> Self { Mode::Overflowed }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Variant {
     XY,
     XOffsetY,

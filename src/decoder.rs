@@ -30,16 +30,52 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
             Op::Wait(UnOp::new(x))
         }
         SET => {
-            let byte = bytes.next().ok_or(DecodeError::UnexpectedEnd)?;
-            let Spec { op_type, mode, variant } = decode_spec(byte)?;
-            let bin_op = decode_bin_op(bytes, variant)?;
-
-            Op::Set(bin_op, op_type, mode)
+            let (Spec { op_type, mode, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Set(b, op_type, mode)
+        }
+        ADD => {
+            let (Spec { op_type, mode, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Add(b, op_type, mode)
+        }
+        SUB => {
+            let (Spec { op_type, mode, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Sub(b, op_type, mode)
+        }
+        MUL => {
+            let (Spec { op_type, mode, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Mul(b, op_type, mode)
+        }
+        DIV => {
+            let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Div(b, op_type)
+        }
+        MOD => {
+            let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Mod(b, op_type)
+        }
+        SHL => {
+            let (Spec { op_type, mode, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Shl(b, op_type, mode)
+        }
+        SHR => {
+            let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Shr(b, op_type)
         }
         _ => return Err(DecodeError::UnknownOpCode),
     };
 
     Ok(op)
+}
+
+fn decode_spec_bin_op<I>(bytes: &mut I) -> Result<(Spec, BinOp), DecodeError>
+    where
+        I: Iterator<Item=u8>,
+{
+    let byte = bytes.next().ok_or(DecodeError::UnexpectedEnd)?;
+    let spec = decode_spec(byte)?;
+    let bin_op = decode_bin_op(bytes, spec.variant)?;
+
+    Ok((spec, bin_op))
 }
 
 fn decode_bin_op<I>(bytes: &mut I, variant: Variant) -> Result<BinOp, DecodeError>
@@ -85,14 +121,13 @@ fn decode_spec(byte: u8) -> Result<Spec, DecodeError> {
     Ok(Spec { op_type, mode, variant })
 }
 
-pub fn decode_operand<I>(bytes: &mut I) -> Result<Operand, DecodeError>
+fn decode_operand<I>(bytes: &mut I) -> Result<Operand, DecodeError>
     where
         I: Iterator<Item=u8>,
 {
-    use std::mem::size_of;
-
     const SIZE_BITS: u8 = 0b0000_1111;
     const KIND_BITS: u8 = 0b0111_0000;
+    const SIZEOF_USIZE: usize = std::mem::size_of::<usize>();
 
     let byte = bytes.next().ok_or(DecodeError::UnexpectedEnd)?;
 
@@ -100,8 +135,8 @@ pub fn decode_operand<I>(bytes: &mut I) -> Result<Operand, DecodeError>
         return Ok(operand);
     }
 
-    let size = (byte & SIZE_BITS) as usize;
-    let mut buf: [u8; size_of::<usize>()] = [0; size_of::<usize>()];
+    let size = (byte & SIZE_BITS) as usize + 1;
+    let mut buf: [u8; SIZEOF_USIZE] = [0; SIZEOF_USIZE];
 
     for i in 0..size {
         buf[i] = bytes.next().ok_or(DecodeError::UnexpectedEnd)?;
@@ -114,12 +149,12 @@ pub fn decode_operand<I>(bytes: &mut I) -> Result<Operand, DecodeError>
 }
 
 fn decode_short_operand(byte: u8) -> Option<Operand> {
-    const SHORT_OPERAND_BIT: u8 = 0b1000_0000;
+    const LONG_OPERAND_BIT: u8 = 0b1000_0000;
 
-    return if byte & SHORT_OPERAND_BIT == 0 {
+    return if byte & LONG_OPERAND_BIT != 0 {
         None
     } else {
-        Some((byte & !SHORT_OPERAND_BIT).into())
+        Some((byte & !LONG_OPERAND_BIT).into())
     };
 }
 
@@ -128,8 +163,104 @@ mod tests {
     use super::*;
 
     #[test]
-    fn decode() {
-        // TODO
-        assert!(true);
+    fn decode_short() {
+        let code = [
+            0x03_u8, 0b0010_0011, 8, 16,
+            // set wide i16 loc(8) loc(16)
+        ];
+
+        let expected = Op::Set(
+            BinOp::bin(Operand::Loc(8), Operand::Loc(16)),
+            OpType::I16,
+            Mode::Wide,
+        );
+
+        let mut it = code.iter().cloned();
+        let actual = decode_op(&mut it).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn decode_long() {
+        let code = [
+            0x04_u8, 0b0000_0100, 0b1000_0001, 8, 0, 0b1001_0000, 16,
+            // add over u32 loc(8) ind(16)
+        ];
+
+        let expected = Op::Add(
+            BinOp::bin(Operand::Loc(8), Operand::Ind(16)),
+            OpType::U32,
+            Mode::Overflowed,
+        );
+
+        let mut it = code.iter().cloned();
+        let actual = decode_op(&mut it).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn decode_xo_y() {
+        let code = [
+            0x03_u8, 0b0101_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
+            // set sat u32 ret(8):val(5) ref(16)
+        ];
+
+        let expected = Op::Set(
+            BinOp::bin(Operand::Ret(8), Operand::Ref(16)).with_x_offset(Operand::Val(5)),
+            OpType::U32,
+            Mode::Saturated,
+        );
+
+        let mut it = code.iter().cloned();
+        let actual = decode_op(&mut it).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn decode_x_yo() {
+        let code = [
+            0x07_u8, 0b1000_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
+            // div u32 ret(8) ref(16):val(5)
+        ];
+
+        let expected = Op::Div(
+            BinOp::bin(Operand::Ret(8), Operand::Ref(16)).with_y_offset(Operand::Val(5)),
+            OpType::U32,
+        );
+
+        let mut it = code.iter().cloned();
+        let actual = decode_op(&mut it).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn decode_xo_yo() {
+        let code = [
+            0x08_u8, 0b1100_0100, 0b1010_0000, 8, 0b1100_0000, 16,
+            0b1011_0000, 5,
+            0b1011_0000, 6,
+            // mod u32 ret(8):val(5) ref(16):val(6)
+        ];
+
+        let expected = Op::Mod(
+            BinOp::bin(Operand::Ret(8), Operand::Ref(16))
+                .with_x_offset(Operand::Val(5))
+                .with_y_offset(Operand::Val(6)),
+            OpType::U32,
+        );
+
+        let mut it = code.iter().cloned();
+        let actual = decode_op(&mut it).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(it.next().is_none());
     }
 }

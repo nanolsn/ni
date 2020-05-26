@@ -4,3 +4,4 @@ mod operations;
 
 pub use operations::*;
 pub use decode::*;
+pub use decoder::*;
