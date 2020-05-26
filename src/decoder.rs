@@ -90,6 +90,22 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
             let (Spec { op_type, mode, .. }, u) = decode_spec_un_op(bytes)?;
             Op::Dec(u, op_type, mode)
         }
+
+        PSF => {
+            let (_, un_op) = decode_spec_un_op(bytes)?;
+            Op::Psf(un_op)
+        }
+        PAR => {
+            let byte = bytes.next().ok_or(DecodeError::UnexpectedEnd)?;
+            let (mode, op_type) = decode_parameter_spec(byte)?;
+            let un_op = UnOp::new(decode_operand(bytes)?);
+
+            Op::Par(un_op, op_type, mode)
+        }
+        CFN => {
+            let (_, un_op) = decode_spec_un_op(bytes)?;
+            Op::Cfn(un_op)
+        }
         _ => return Err(DecodeError::UnknownOpCode),
     };
 
@@ -148,15 +164,28 @@ fn decode_un_op<I>(bytes: &mut I, variant: Variant) -> Result<UnOp, DecodeError>
 }
 
 fn decode_spec(byte: u8) -> Result<Spec, DecodeError> {
-    const OP_TYPE_BITS: u8 = 0b0000_1111;
     const MODE_BITS: u8 = 0b0011_0000;
     const VARIANT_BITS: u8 = 0b1100_0000;
 
-    let op_type = OpType::new(byte & OP_TYPE_BITS)?;
+    let op_type = decode_op_type(byte)?;
     let mode = Mode::new((byte & MODE_BITS) >> 4)?;
     let variant = Variant::new((byte & VARIANT_BITS) >> 6)?;
 
     Ok(Spec { op_type, mode, variant })
+}
+
+fn decode_parameter_spec(byte: u8) -> Result<(ParameterMode, OpType), DecodeError> {
+    const PARAMETER_MODE_BITS: u8 = 0b0011_0000;
+
+    let mode = ParameterMode::new((byte & PARAMETER_MODE_BITS) >> 4)?;
+    let op_type = decode_op_type(byte)?;
+
+    Ok((mode, op_type))
+}
+
+fn decode_op_type(byte: u8) -> Result<OpType, DecodeError> {
+    const OP_TYPE_BITS: u8 = 0b0000_1111;
+    Ok(OpType::new(byte & OP_TYPE_BITS)?)
 }
 
 fn decode_operand<I>(bytes: &mut I) -> Result<Operand, DecodeError>

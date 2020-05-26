@@ -1,9 +1,10 @@
 #[derive(Debug, Eq, PartialEq)]
 pub enum UndefinedOperation {
-    Mode,
     OpType,
     Kind,
     Variant,
+    Mode,
+    ParameterMode,
 }
 
 pub mod op_codes {
@@ -25,15 +26,43 @@ pub mod op_codes {
     pub const NEG: u8 = 0x0F;
     pub const INC: u8 = 0x10;
     pub const DEC: u8 = 0x11;
+
+    pub const PSF: u8 = 0x20;
+    pub const PAR: u8 = 0x21;
+    pub const CFN: u8 = 0x22;
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Operand {
+    /// Local variable.
+    ///
+    /// Expressed as `x` or `loc(12)`.
     Loc(usize),
+
+    /// Indirection access.
+    ///
+    /// Expressed as `*x` or `ind(12)`.
     Ind(usize),
+
+    /// Return variable.
+    ///
+    /// Expressed as `^x` or `ret(12)`.
     Ret(usize),
+
+    /// Constant value.
+    ///
+    /// Expressed as `12` or `val(12)`.
     Val(usize),
+
+    /// Variable reference.
+    ///
+    /// Expressed as `&x` or `ref(12)`.
     Ref(usize),
+
+    /// Empty.
+    ///
+    /// Expressed as `emp`.
+    Emp,
 }
 
 impl Operand {
@@ -46,6 +75,7 @@ impl Operand {
             2 => Ret(value),
             3 => Val(value),
             4 => Ref(value),
+            5 => Emp,
             _ => return Err(UndefinedOperation::Kind),
         })
     }
@@ -119,6 +149,10 @@ pub enum Op {
     Neg(UnOp, OpType, Mode),
     Inc(UnOp, OpType, Mode),
     Dec(UnOp, OpType, Mode),
+
+    Psf(UnOp),
+    Par(UnOp, OpType, ParameterMode),
+    Cfn(UnOp),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -140,6 +174,8 @@ pub enum OpType {
     I64,
     Uw,
     Iw,
+    F32,
+    F64,
 }
 
 impl OpType {
@@ -157,6 +193,8 @@ impl OpType {
             7 => I64,
             8 => Uw,
             9 => Iw,
+            11 => F32,
+            13 => F64,
             _ => return Err(UndefinedOperation::OpType),
         })
     }
@@ -164,9 +202,16 @@ impl OpType {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Mode {
+    /// Wrapping mode.
     Wrap,
+
+    /// Saturating mode.
     Sat,
+
+    /// Wide mode.
     Wide,
+
+    /// Handling mode.
     Hand,
 }
 
@@ -190,9 +235,16 @@ impl Default for Mode {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Variant {
+    /// `x y` variant.
     XY,
+
+    /// `x:q y` variant.
     XOffsetY,
+
+    /// `x y:q` variant.
     XYOffset,
+
+    /// `x:q y:w` variant.
     XOffsetYOffset,
 }
 
@@ -206,6 +258,31 @@ impl Variant {
             2 => XYOffset,
             3 => XOffsetYOffset,
             _ => return Err(UndefinedOperation::Variant),
+        })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ParameterMode {
+    /// Set mode.
+    Set,
+
+    /// Empty mode.
+    Emp,
+
+    /// Memory set zeroes mode.
+    Msz,
+}
+
+impl ParameterMode {
+    pub fn new(value: u8) -> Result<Self, UndefinedOperation> {
+        use ParameterMode::*;
+
+        Ok(match value {
+            0 => Set,
+            1 => Emp,
+            2 => Msz,
+            _ => return Err(UndefinedOperation::ParameterMode),
         })
     }
 }
