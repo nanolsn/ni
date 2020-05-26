@@ -8,8 +8,8 @@ pub enum UndefinedOperation {
 
 pub mod op_codes {
     pub const NOP: u8 = 0x00;
-    pub const STOP: u8 = 0x01;
-    pub const WAIT: u8 = 0x02;
+    pub const END: u8 = 0x01;
+    pub const SLP: u8 = 0x02;
     pub const SET: u8 = 0x03;
     pub const ADD: u8 = 0x04;
     pub const SUB: u8 = 0x05;
@@ -18,6 +18,13 @@ pub mod op_codes {
     pub const MOD: u8 = 0x08;
     pub const SHL: u8 = 0x09;
     pub const SHR: u8 = 0x0A;
+    pub const AND: u8 = 0x0B;
+    pub const OR: u8 = 0x0C;
+    pub const XOR: u8 = 0x0D;
+    pub const NOT: u8 = 0x0E;
+    pub const NEG: u8 = 0x0F;
+    pub const INC: u8 = 0x10;
+    pub const DEC: u8 = 0x11;
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -95,8 +102,8 @@ impl BinOp {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Op {
     Nop,
-    Stop(UnOp),
-    Wait(UnOp),
+    End(UnOp),
+    Slp(UnOp),
     Set(BinOp, OpType),
     Add(BinOp, OpType, Mode),
     Sub(BinOp, OpType, Mode),
@@ -105,6 +112,13 @@ pub enum Op {
     Mod(BinOp, OpType),
     Shl(BinOp, OpType, Mode),
     Shr(BinOp, OpType, Mode),
+    And(BinOp, OpType),
+    Or(BinOp, OpType),
+    Xor(BinOp, OpType),
+    Not(UnOp, OpType),
+    Neg(UnOp, OpType, Mode),
+    Inc(UnOp, OpType, Mode),
+    Dec(UnOp, OpType, Mode),
 }
 
 #[derive(Debug, Eq, PartialEq)]

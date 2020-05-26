@@ -21,13 +21,13 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
 
     let op = match op_code {
         NOP => Op::Nop,
-        STOP => {
+        END => {
             let x = decode_operand(bytes)?;
-            Op::Stop(UnOp::new(x))
+            Op::End(UnOp::new(x))
         }
-        WAIT => {
+        SLP => {
             let x = decode_operand(bytes)?;
-            Op::Wait(UnOp::new(x))
+            Op::Slp(UnOp::new(x))
         }
         SET => {
             let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
@@ -60,6 +60,50 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
         SHR => {
             let (Spec { op_type, mode, .. }, b) = decode_spec_bin_op(bytes)?;
             Op::Shr(b, op_type, mode)
+        }
+        AND => {
+            let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::And(b, op_type)
+        }
+        OR => {
+            let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Or(b, op_type)
+        }
+        XOR => {
+            let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
+            Op::Xor(b, op_type)
+        }
+        NOT => {
+            let x = decode_operand(bytes)?;
+            let Spec { op_type, .. } = decode_spec(bytes
+                .next()
+                .ok_or(DecodeError::UnexpectedEnd)?)?;
+
+            Op::Not(UnOp::new(x), op_type)
+        }
+        NEG => {
+            let x = decode_operand(bytes)?;
+            let Spec { op_type, mode, .. } = decode_spec(bytes
+                .next()
+                .ok_or(DecodeError::UnexpectedEnd)?)?;
+
+            Op::Neg(UnOp::new(x), op_type, mode)
+        }
+        INC => {
+            let x = decode_operand(bytes)?;
+            let Spec { op_type, mode, .. } = decode_spec(bytes
+                .next()
+                .ok_or(DecodeError::UnexpectedEnd)?)?;
+
+            Op::Inc(UnOp::new(x), op_type, mode)
+        }
+        DEC => {
+            let x = decode_operand(bytes)?;
+            let Spec { op_type, mode, .. } = decode_spec(bytes
+                .next()
+                .ok_or(DecodeError::UnexpectedEnd)?)?;
+
+            Op::Dec(UnOp::new(x), op_type, mode)
         }
         _ => return Err(DecodeError::UnknownOpCode),
     };
