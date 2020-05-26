@@ -7,31 +7,6 @@ pub enum UndefinedOperation {
     ParameterMode,
 }
 
-pub mod op_codes {
-    pub const NOP: u8 = 0x00;
-    pub const END: u8 = 0x01;
-    pub const SLP: u8 = 0x02;
-    pub const SET: u8 = 0x03;
-    pub const ADD: u8 = 0x04;
-    pub const SUB: u8 = 0x05;
-    pub const MUL: u8 = 0x06;
-    pub const DIV: u8 = 0x07;
-    pub const MOD: u8 = 0x08;
-    pub const SHL: u8 = 0x09;
-    pub const SHR: u8 = 0x0A;
-    pub const AND: u8 = 0x0B;
-    pub const OR: u8 = 0x0C;
-    pub const XOR: u8 = 0x0D;
-    pub const NOT: u8 = 0x0E;
-    pub const NEG: u8 = 0x0F;
-    pub const INC: u8 = 0x10;
-    pub const DEC: u8 = 0x11;
-
-    pub const PSF: u8 = 0x20;
-    pub const PAR: u8 = 0x21;
-    pub const CFN: u8 = 0x22;
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub enum Operand {
     /// Local variable.
@@ -135,34 +110,30 @@ pub enum Op {
     End(UnOp),
     Slp(UnOp),
     Set(BinOp, OpType),
-    Add(BinOp, OpType, Mode),
-    Sub(BinOp, OpType, Mode),
-    Mul(BinOp, OpType, Mode),
+    Add(BinOp, OpType, ArithmeticMode),
+    Sub(BinOp, OpType, ArithmeticMode),
+    Mul(BinOp, OpType, ArithmeticMode),
     Div(BinOp, OpType),
     Mod(BinOp, OpType),
-    Shl(BinOp, OpType, Mode),
-    Shr(BinOp, OpType, Mode),
+    Shl(BinOp, OpType, ArithmeticMode),
+    Shr(BinOp, OpType, ArithmeticMode),
     And(BinOp, OpType),
     Or(BinOp, OpType),
     Xor(BinOp, OpType),
     Not(UnOp, OpType),
-    Neg(UnOp, OpType, Mode),
-    Inc(UnOp, OpType, Mode),
-    Dec(UnOp, OpType, Mode),
+    Neg(UnOp, OpType, ArithmeticMode),
+    Inc(UnOp, OpType, ArithmeticMode),
+    Dec(UnOp, OpType, ArithmeticMode),
+    // TODO: Ift ..
 
-    Psf(UnOp),
+    // TODO: App(Operand)
+    App(UnOp),
     Par(UnOp, OpType, ParameterMode),
+    // TODO: Cfn(Operand)
     Cfn(UnOp),
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub struct Spec {
-    pub op_type: OpType,
-    pub mode: Mode,
-    pub variant: Variant,
-}
-
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum OpType {
     U8,
     I8,
@@ -201,7 +172,20 @@ impl OpType {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum Mode {
+pub struct Mode(pub u8);
+
+impl Mode {
+    pub fn into_arithmetic(self) -> Result<ArithmeticMode, UndefinedOperation> {
+        ArithmeticMode::new(self.0)
+    }
+
+    pub fn into_parameter(self) -> Result<ParameterMode, UndefinedOperation> {
+        ParameterMode::new(self.0)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ArithmeticMode {
     /// Wrapping mode.
     Wrap,
 
@@ -215,9 +199,9 @@ pub enum Mode {
     Hand,
 }
 
-impl Mode {
+impl ArithmeticMode {
     pub fn new(value: u8) -> Result<Self, UndefinedOperation> {
-        use Mode::*;
+        use ArithmeticMode::*;
 
         Ok(match value {
             0 => Wrap,
@@ -229,8 +213,37 @@ impl Mode {
     }
 }
 
-impl Default for Mode {
-    fn default() -> Self { Mode::Wrap }
+impl Default for ArithmeticMode {
+    fn default() -> Self { ArithmeticMode::Wrap }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ParameterMode {
+    /// Set mode.
+    Set,
+
+    /// Empty mode.
+    Emp,
+
+    /// Memory set zeroes mode.
+    Msz,
+}
+
+impl ParameterMode {
+    pub fn new(value: u8) -> Result<Self, UndefinedOperation> {
+        use ParameterMode::*;
+
+        Ok(match value {
+            0 => Set,
+            1 => Emp,
+            2 => Msz,
+            _ => return Err(UndefinedOperation::ParameterMode),
+        })
+    }
+}
+
+impl Default for ParameterMode {
+    fn default() -> Self { ParameterMode::Set }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -258,31 +271,6 @@ impl Variant {
             2 => XYOffset,
             3 => XOffsetYOffset,
             _ => return Err(UndefinedOperation::Variant),
-        })
-    }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub enum ParameterMode {
-    /// Set mode.
-    Set,
-
-    /// Empty mode.
-    Emp,
-
-    /// Memory set zeroes mode.
-    Msz,
-}
-
-impl ParameterMode {
-    pub fn new(value: u8) -> Result<Self, UndefinedOperation> {
-        use ParameterMode::*;
-
-        Ok(match value {
-            0 => Set,
-            1 => Emp,
-            2 => Msz,
-            _ => return Err(UndefinedOperation::ParameterMode),
         })
     }
 }
