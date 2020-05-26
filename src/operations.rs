@@ -79,7 +79,7 @@ pub struct BinOp {
 }
 
 impl BinOp {
-    pub fn bin(x: Operand, y: Operand) -> Self {
+    pub fn new(x: Operand, y: Operand) -> Self {
         Self {
             x,
             x_offset: None,

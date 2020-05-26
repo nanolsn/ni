@@ -5,6 +5,7 @@ pub enum DecodeError {
     UnexpectedEnd,
     UnknownOpCode,
     UndefinedOperation(UndefinedOperation),
+    IncorrectVariant,
 }
 
 impl From<UndefinedOperation> for DecodeError {
@@ -22,12 +23,12 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
     let op = match op_code {
         NOP => Op::Nop,
         END => {
-            let x = decode_operand(bytes)?;
-            Op::End(UnOp::new(x))
+            let (_, un_op) = decode_spec_un_op(bytes)?;
+            Op::End(un_op)
         }
         SLP => {
-            let x = decode_operand(bytes)?;
-            Op::Slp(UnOp::new(x))
+            let (_, un_op) = decode_spec_un_op(bytes)?;
+            Op::Slp(un_op)
         }
         SET => {
             let (Spec { op_type, .. }, b) = decode_spec_bin_op(bytes)?;
@@ -74,36 +75,20 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
             Op::Xor(b, op_type)
         }
         NOT => {
-            let x = decode_operand(bytes)?;
-            let Spec { op_type, .. } = decode_spec(bytes
-                .next()
-                .ok_or(DecodeError::UnexpectedEnd)?)?;
-
-            Op::Not(UnOp::new(x), op_type)
+            let (Spec { op_type, .. }, u) = decode_spec_un_op(bytes)?;
+            Op::Not(u, op_type)
         }
         NEG => {
-            let x = decode_operand(bytes)?;
-            let Spec { op_type, mode, .. } = decode_spec(bytes
-                .next()
-                .ok_or(DecodeError::UnexpectedEnd)?)?;
-
-            Op::Neg(UnOp::new(x), op_type, mode)
+            let (Spec { op_type, mode, .. }, u) = decode_spec_un_op(bytes)?;
+            Op::Neg(u, op_type, mode)
         }
         INC => {
-            let x = decode_operand(bytes)?;
-            let Spec { op_type, mode, .. } = decode_spec(bytes
-                .next()
-                .ok_or(DecodeError::UnexpectedEnd)?)?;
-
-            Op::Inc(UnOp::new(x), op_type, mode)
+            let (Spec { op_type, mode, .. }, u) = decode_spec_un_op(bytes)?;
+            Op::Inc(u, op_type, mode)
         }
         DEC => {
-            let x = decode_operand(bytes)?;
-            let Spec { op_type, mode, .. } = decode_spec(bytes
-                .next()
-                .ok_or(DecodeError::UnexpectedEnd)?)?;
-
-            Op::Dec(UnOp::new(x), op_type, mode)
+            let (Spec { op_type, mode, .. }, u) = decode_spec_un_op(bytes)?;
+            Op::Dec(u, op_type, mode)
         }
         _ => return Err(DecodeError::UnknownOpCode),
     };
@@ -126,30 +111,39 @@ fn decode_bin_op<I>(bytes: &mut I, variant: Variant) -> Result<BinOp, DecodeErro
     where
         I: Iterator<Item=u8>,
 {
-    let x = decode_operand(bytes)?;
-    let y = decode_operand(bytes)?;
-    let bin_op = BinOp::bin(x, y);
+    let bin_op = BinOp::new(decode_operand(bytes)?, decode_operand(bytes)?);
 
     Ok(match variant {
         Variant::XY => bin_op,
-        Variant::XOffsetY => {
-            let x_offset = decode_operand(bytes)?;
+        Variant::XOffsetY => bin_op.with_x_offset(decode_operand(bytes)?),
+        Variant::XYOffset => bin_op.with_y_offset(decode_operand(bytes)?),
+        Variant::XOffsetYOffset => bin_op
+            .with_x_offset(decode_operand(bytes)?)
+            .with_y_offset(decode_operand(bytes)?)
+    })
+}
 
-            bin_op.with_x_offset(x_offset)
-        }
-        Variant::XYOffset => {
-            let y_offset = decode_operand(bytes)?;
+fn decode_spec_un_op<I>(bytes: &mut I) -> Result<(Spec, UnOp), DecodeError>
+    where
+        I: Iterator<Item=u8>,
+{
+    let byte = bytes.next().ok_or(DecodeError::UnexpectedEnd)?;
+    let spec = decode_spec(byte)?;
+    let un_op = decode_un_op(bytes, spec.variant)?;
 
-            bin_op.with_y_offset(y_offset)
-        }
-        Variant::XOffsetYOffset => {
-            let x_offset = decode_operand(bytes)?;
-            let y_offset = decode_operand(bytes)?;
+    Ok((spec, un_op))
+}
 
-            bin_op
-                .with_x_offset(x_offset)
-                .with_y_offset(y_offset)
-        }
+fn decode_un_op<I>(bytes: &mut I, variant: Variant) -> Result<UnOp, DecodeError>
+    where
+        I: Iterator<Item=u8>,
+{
+    let un_op = UnOp::new(decode_operand(bytes)?);
+
+    Ok(match variant {
+        Variant::XY => un_op,
+        Variant::XOffsetY => un_op.with_x_offset(decode_operand(bytes)?),
+        _ => return Err(DecodeError::IncorrectVariant),
     })
 }
 
@@ -207,14 +201,74 @@ mod tests {
     use super::*;
 
     #[test]
-    fn decode_short() {
+    fn decode_un_short() {
         let code = [
-            0x03_u8, 0b0010_0011, 8, 16,
+            0x10_u8, 0b0011_0011, 16,
+            // inc hand i16 loc(16)
+        ];
+
+        let expected = Op::Inc(
+            UnOp::new(Operand::Loc(16)),
+            OpType::I16,
+            Mode::Hand,
+        );
+
+        let mut it = code.iter().cloned();
+        let actual = decode_op(&mut it).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn decode_un_long() {
+        let code = [
+            0x10_u8, 0b0011_0011, 0b1001_0000, 16,
+            // inc hand i16 ind(16)
+        ];
+
+        let expected = Op::Inc(
+            UnOp::new(Operand::Ind(16)),
+            OpType::I16,
+            Mode::Hand,
+        );
+
+        let mut it = code.iter().cloned();
+        let actual = decode_op(&mut it).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn decode_un_xo() {
+        let code = [
+            0x10_u8, 0b0100_0011, 0b1001_0000, 16, 0b1100_0000, 1,
+            // inc i16 ind(16):ref(1)
+        ];
+
+        let expected = Op::Inc(
+            UnOp::new(Operand::Ind(16)).with_x_offset(Operand::Ref(1)),
+            OpType::I16,
+            Mode::default(),
+        );
+
+        let mut it = code.iter().cloned();
+        let actual = decode_op(&mut it).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn decode_bin_short() {
+        let code = [
+            0x03_u8, 0b0000_0011, 8, 16,
             // set i16 loc(8) loc(16)
         ];
 
         let expected = Op::Set(
-            BinOp::bin(Operand::Loc(8), Operand::Loc(16)),
+            BinOp::new(Operand::Loc(8), Operand::Loc(16)),
             OpType::I16,
         );
 
@@ -226,14 +280,14 @@ mod tests {
     }
 
     #[test]
-    fn decode_long() {
+    fn decode_bin_long() {
         let code = [
             0x04_u8, 0b0000_0100, 0b1000_0001, 8, 0, 0b1001_0000, 16,
             // add u32 loc(8) ind(16)
         ];
 
         let expected = Op::Add(
-            BinOp::bin(Operand::Loc(8), Operand::Ind(16)),
+            BinOp::new(Operand::Loc(8), Operand::Ind(16)),
             OpType::U32,
             Mode::default(),
         );
@@ -246,14 +300,14 @@ mod tests {
     }
 
     #[test]
-    fn decode_xo_y() {
+    fn decode_bin_xo_y() {
         let code = [
             0x03_u8, 0b0101_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
             // set u32 ret(8):val(5) ref(16)
         ];
 
         let expected = Op::Set(
-            BinOp::bin(Operand::Ret(8), Operand::Ref(16)).with_x_offset(Operand::Val(5)),
+            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_x_offset(Operand::Val(5)),
             OpType::U32,
         );
 
@@ -265,14 +319,14 @@ mod tests {
     }
 
     #[test]
-    fn decode_x_yo() {
+    fn decode_bin_x_yo() {
         let code = [
             0x07_u8, 0b1000_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
             // div u32 ret(8) ref(16):val(5)
         ];
 
         let expected = Op::Div(
-            BinOp::bin(Operand::Ret(8), Operand::Ref(16)).with_y_offset(Operand::Val(5)),
+            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_y_offset(Operand::Val(5)),
             OpType::U32,
         );
 
@@ -284,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    fn decode_xo_yo() {
+    fn decode_bin_xo_yo() {
         let code = [
             0x08_u8, 0b1100_0100, 0b1010_0000, 8, 0b1100_0000, 16,
             0b1011_0000, 5,
@@ -293,7 +347,7 @@ mod tests {
         ];
 
         let expected = Op::Mod(
-            BinOp::bin(Operand::Ret(8), Operand::Ref(16))
+            BinOp::new(Operand::Ret(8), Operand::Ref(16))
                 .with_x_offset(Operand::Val(5))
                 .with_y_offset(Operand::Val(6)),
             OpType::U32,
