@@ -78,19 +78,13 @@ impl Memory {
             })
     }
 
-    pub fn get<'a, T>(&'a self, ptr: usize) -> Result<T, MemoryError>
+    pub fn get<T>(&self, ptr: usize) -> Result<T, MemoryError>
         where
             T: Primary,
-            &'a [u8]: std::convert::TryInto<T::Bytes>,
     {
-        use std::convert::TryInto;
-
         self.mem(ptr, T::SIZE)
             .ok_or(MemoryError::SegmentationFault)
-            .map(|sl| {
-                let bytes = sl.try_into().unwrap_or_else(|_| unreachable!());
-                T::from_bytes(bytes)
-            })
+            .map(|sl| T::from_slice(sl))
     }
 }
 

@@ -6,6 +6,8 @@ pub trait Primary: Sized {
     fn to_bytes(&self) -> Self::Bytes;
 
     fn from_bytes(bytes: Self::Bytes) -> Self;
+
+    fn from_slice(slice: &[u8]) -> Self;
 }
 
 macro_rules! impl_primary {
@@ -17,6 +19,16 @@ macro_rules! impl_primary {
             fn to_bytes(&self) -> Self::Bytes { self.to_ne_bytes() }
 
             fn from_bytes(bytes: Self::Bytes) -> Self { Self::from_ne_bytes(bytes) }
+
+            fn from_slice(slice: &[u8]) -> Self {
+                let mut bytes: Self::Bytes = [0; Self::SIZE];
+
+                for (i, b) in slice.iter().enumerate() {
+                    bytes[i] = *b;
+                }
+
+                Self::from_bytes(bytes)
+            }
         }
         )+
     }
