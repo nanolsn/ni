@@ -7,7 +7,7 @@ pub enum UndefinedOperation {
     ParameterMode,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Operand {
     /// Local variable.
     ///
@@ -54,13 +54,24 @@ impl Operand {
             _ => return Err(UndefinedOperation::Kind),
         })
     }
+
+    pub fn get(self) -> Option<usize> {
+        return match self {
+            Operand::Loc(v) => Some(v),
+            Operand::Ind(v) => Some(v),
+            Operand::Ret(v) => Some(v),
+            Operand::Val(v) => Some(v),
+            Operand::Ref(v) => Some(v),
+            Operand::Emp => None,
+        };
+    }
 }
 
 impl From<u8> for Operand {
     fn from(byte: u8) -> Self { Operand::Loc(byte as usize) }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct UnOp {
     x: Operand,
     x_offset: Option<Operand>,
@@ -75,7 +86,7 @@ impl UnOp {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct BinOp {
     x: Operand,
     x_offset: Option<Operand>,
@@ -104,11 +115,11 @@ impl BinOp {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Op {
     Nop,
-    End(UnOp),
-    Slp(UnOp),
+    End(Operand),
+    Slp(Operand),
     Set(BinOp, OpType),
     Add(BinOp, OpType, ArithmeticMode),
     Sub(BinOp, OpType, ArithmeticMode),
@@ -195,7 +206,7 @@ impl Mode {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ArithmeticMode {
     /// Wrapping mode.
     Wrap,
@@ -228,7 +239,7 @@ impl Default for ArithmeticMode {
     fn default() -> Self { ArithmeticMode::Wrap }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ParameterMode {
     /// Set mode.
     Set,

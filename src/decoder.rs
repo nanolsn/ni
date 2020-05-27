@@ -17,122 +17,123 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
         I: Iterator<Item=u8>,
 {
     use op_codes::*;
+    use Op::*;
 
     let op_code = bytes.next().ok_or(DecodeError::UnexpectedEnd)?;
 
     let op = match op_code {
-        NOP => Op::Nop,
-        END => Op::End(decode(bytes)?),
-        SLP => Op::Slp(decode(bytes)?),
+        NOP => Nop,
+        END => End(decode(bytes)?),
+        SLP => Slp(decode(bytes)?),
         SET => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Set(bin_op, op_type)
+            Set(bin_op, op_type)
         }
         ADD => {
             let (bin_op, op_type, mode) = decode(bytes)?;
-            Op::Add(bin_op, op_type, mode)
+            Add(bin_op, op_type, mode)
         }
         SUB => {
             let (bin_op, op_type, mode) = decode(bytes)?;
-            Op::Sub(bin_op, op_type, mode)
+            Sub(bin_op, op_type, mode)
         }
         MUL => {
             let (bin_op, op_type, mode) = decode(bytes)?;
-            Op::Mul(bin_op, op_type, mode)
+            Mul(bin_op, op_type, mode)
         }
         DIV => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Div(bin_op, op_type)
+            Div(bin_op, op_type)
         }
         MOD => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Mod(bin_op, op_type)
+            Mod(bin_op, op_type)
         }
         SHL => {
             let (bin_op, op_type, mode) = decode(bytes)?;
-            Op::Shl(bin_op, op_type, mode)
+            Shl(bin_op, op_type, mode)
         }
         SHR => {
             let (bin_op, op_type, mode) = decode(bytes)?;
-            Op::Shr(bin_op, op_type, mode)
+            Shr(bin_op, op_type, mode)
         }
         AND => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::And(bin_op, op_type)
+            And(bin_op, op_type)
         }
         OR => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Or(bin_op, op_type)
+            Or(bin_op, op_type)
         }
         XOR => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Xor(bin_op, op_type)
+            Xor(bin_op, op_type)
         }
         NOT => {
             let (op_type, _, var) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
-            Op::Not(un_op, op_type)
+            Not(un_op, op_type)
         }
         NEG => {
             let (op_type, mode, var) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
-            Op::Neg(un_op, op_type, mode.into_arithmetic()?)
+            Neg(un_op, op_type, mode.into_arithmetic()?)
         }
         INC => {
             let (op_type, mode, var) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
-            Op::Inc(un_op, op_type, mode.into_arithmetic()?)
+            Inc(un_op, op_type, mode.into_arithmetic()?)
         }
         DEC => {
             let (op_type, mode, var) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
-            Op::Dec(un_op, op_type, mode.into_arithmetic()?)
+            Dec(un_op, op_type, mode.into_arithmetic()?)
         }
-        GO => Op::Go(decode(bytes)?),
-        IFT => Op::Ift(decode(bytes)?),
-        IFF => Op::Iff(decode(bytes)?),
+        GO => Go(decode(bytes)?),
+        IFT => Ift(decode(bytes)?),
+        IFF => Iff(decode(bytes)?),
         IFE => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Ife(bin_op, op_type)
+            Ife(bin_op, op_type)
         }
         IFL => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Ifl(bin_op, op_type)
+            Ifl(bin_op, op_type)
         }
         IFG => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Ifg(bin_op, op_type)
+            Ifg(bin_op, op_type)
         }
         INE => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Ine(bin_op, op_type)
+            Ine(bin_op, op_type)
         }
         INL => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Inl(bin_op, op_type)
+            Inl(bin_op, op_type)
         }
         ING => {
             let (bin_op, op_type, _) = decode(bytes)?;
-            Op::Ing(bin_op, op_type)
+            Ing(bin_op, op_type)
         }
-        IFA => Op::Ifa(decode(bytes)?, decode(bytes)?),
-        IFO => Op::Ifo(decode(bytes)?, decode(bytes)?),
-        IFX => Op::Ifx(decode(bytes)?, decode(bytes)?),
-        INA => Op::Ina(decode(bytes)?, decode(bytes)?),
-        INO => Op::Ino(decode(bytes)?, decode(bytes)?),
-        INX => Op::Inx(decode(bytes)?, decode(bytes)?),
-        APP => Op::App(decode(bytes)?),
+        IFA => Ifa(decode(bytes)?, decode(bytes)?),
+        IFO => Ifo(decode(bytes)?, decode(bytes)?),
+        IFX => Ifx(decode(bytes)?, decode(bytes)?),
+        INA => Ina(decode(bytes)?, decode(bytes)?),
+        INO => Ino(decode(bytes)?, decode(bytes)?),
+        INX => Inx(decode(bytes)?, decode(bytes)?),
+        APP => App(decode(bytes)?),
         PAR => {
             let (op_type, mode, var) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
-            Op::Par(un_op, op_type, mode.into_parameter()?)
+            Par(un_op, op_type, mode.into_parameter()?)
         }
-        CFN => Op::Cfn(decode(bytes)?),
+        CFN => Cfn(decode(bytes)?),
         _ => return Err(DecodeError::UnknownOpCode),
     };
 
