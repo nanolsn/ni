@@ -3,7 +3,7 @@ pub enum UndefinedOperation {
     OpType,
     Kind,
     Variant,
-    Mode,
+    ArithmeticMode,
     ParameterMode,
 }
 
@@ -124,13 +124,24 @@ pub enum Op {
     Neg(UnOp, OpType, ArithmeticMode),
     Inc(UnOp, OpType, ArithmeticMode),
     Dec(UnOp, OpType, ArithmeticMode),
-    // TODO: Ift ..
-
-    // TODO: App(Operand)
-    App(UnOp),
+    Go(Operand),
+    Ift(Operand),
+    Iff(Operand),
+    Ife(BinOp, OpType),
+    Ifl(BinOp, OpType),
+    Ifg(BinOp, OpType),
+    Ine(BinOp, OpType),
+    Inl(BinOp, OpType),
+    Ing(BinOp, OpType),
+    Ifa(Operand, Operand),
+    Ifo(Operand, Operand),
+    Ifx(Operand, Operand),
+    Ina(Operand, Operand),
+    Ino(Operand, Operand),
+    Inx(Operand, Operand),
+    App(Operand),
     Par(UnOp, OpType, ParameterMode),
-    // TODO: Cfn(Operand)
-    Cfn(UnOp),
+    Cfn(Operand),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -208,7 +219,7 @@ impl ArithmeticMode {
             1 => Sat,
             2 => Wide,
             3 => Hand,
-            _ => return Err(UndefinedOperation::Mode),
+            _ => return Err(UndefinedOperation::ArithmeticMode),
         })
     }
 }
@@ -249,16 +260,16 @@ impl Default for ParameterMode {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Variant {
     /// `x y` variant.
-    XY,
+    NoOffset,
 
     /// `x:q y` variant.
-    XOffsetY,
+    First,
 
     /// `x y:q` variant.
-    XYOffset,
+    Second,
 
     /// `x:q y:w` variant.
-    XOffsetYOffset,
+    Both,
 }
 
 impl Variant {
@@ -266,10 +277,10 @@ impl Variant {
         use Variant::*;
 
         Ok(match variant {
-            0 => XY,
-            1 => XOffsetY,
-            2 => XYOffset,
-            3 => XOffsetYOffset,
+            0 => NoOffset,
+            1 => First,
+            2 => Second,
+            3 => Both,
             _ => return Err(UndefinedOperation::Variant),
         })
     }
