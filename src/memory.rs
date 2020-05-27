@@ -1,3 +1,6 @@
+use crate::Primary;
+use std::borrow::Borrow;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum MemoryError {
     StackOverflow,
@@ -63,25 +66,31 @@ impl Memory {
         }
     }
 
-    pub fn set(&mut self, ptr: usize, value: usize) -> Result<(), MemoryError> {
-        let bytes: [u8; std::mem::size_of::<usize>()] = value.to_ne_bytes();
-
-        self.mut_mem(ptr, bytes.len())
+    pub fn set<T>(&mut self, ptr: usize, value: T) -> Result<(), MemoryError>
+        where
+            T: Primary,
+    {
+        self.mut_mem(ptr, T::SIZE)
             .ok_or(MemoryError::SegmentationFault)
             .map(|s| {
-                s.copy_from_slice(&bytes);
+                s.copy_from_slice(value.to_bytes().borrow());
                 ()
             })
     }
 
-    pub fn get(&self, ptr: usize) -> Result<usize, MemoryError> {
+    pub fn get<'a, T>(&'a self, ptr: usize) -> Result<T, MemoryError>
+        where
+            T: Primary,
+            &'a [u8]: std::convert::TryInto<T::Bytes>,
+    {
         use std::convert::TryInto;
 
-        const SIZE: usize = std::mem::size_of::<usize>();
-
-        self.mem(ptr, SIZE)
+        self.mem(ptr, T::SIZE)
             .ok_or(MemoryError::SegmentationFault)
-            .map(|s| usize::from_ne_bytes(s.try_into().unwrap()))
+            .map(|sl| {
+                let bytes = sl.try_into().unwrap_or_else(|_| unreachable!());
+                T::from_bytes(bytes)
+            })
     }
 }
 
@@ -104,21 +113,21 @@ mod tests {
     fn memory_set() {
         let mut mem = Memory::new();
         assert!(mem.append_stack(9).is_ok());
-        assert!(mem.set(1, 0xFF000F0A).is_ok());
+        assert!(mem.set(1, 0xFF000F0A_usize).is_ok());
         assert_eq!(mem.stack, [0, 10, 15, 0, 255, 0, 0, 0, 0]);
 
-        let value = mem.get(1).unwrap();
-        assert_eq!(value, 0xFF000F0A);
+        let value: usize = mem.get(1).unwrap();
+        assert_eq!(value, 0xFF000F0A_usize);
     }
 
     #[test]
     fn memory_set_heap() {
         let mut mem = Memory::new();
         assert!(mem.append_heap(9).is_ok());
-        assert!(mem.set(Memory::HEAP_BASE + 1, 0xFF000F0A).is_ok());
+        assert!(mem.set(Memory::HEAP_BASE + 1, 0xFF000F0A_usize).is_ok());
         assert_eq!(mem.heap, [0, 10, 15, 0, 255, 0, 0, 0, 0]);
 
-        let value = mem.get(Memory::HEAP_BASE + 1).unwrap();
-        assert_eq!(value, 0xFF000F0A);
+        let value: usize = mem.get(Memory::HEAP_BASE + 1).unwrap();
+        assert_eq!(value, 0xFF000F0A_usize);
     }
 }
