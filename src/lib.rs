@@ -1,6 +1,7 @@
 mod decode;
 mod decoder;
 mod executor;
+mod memory;
 pub mod op_codes;
 mod operations;
 
