@@ -51,4 +51,44 @@ macro_rules! impl_primary {
     }
 }
 
-impl_primary!(u8, i8, u16, i16, u32, i32, u64, i64, usize, isize, f32, f64);
+impl_primary!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize, f32, f64);
+
+pub trait Add: Primary {
+    fn wrapping(self, r: Self) -> Self;
+
+    fn saturating(self, r: Self) -> Self;
+
+    fn checked(self, r: Self) -> Option<Self>;
+}
+
+macro_rules! impl_add {
+    ($($t:ty),+) => {
+        $(
+        impl Add for $t {
+            fn wrapping(self, r: Self) -> Self { self.wrapping_add(r) }
+
+            fn saturating(self, r: Self) -> Self { self.saturating_add(r) }
+
+            fn checked(self, r: Self) -> Option<Self> { self.checked_add(r) }
+        }
+        )+
+    }
+}
+
+impl_add!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+
+impl Add for f32 {
+    fn wrapping(self, r: Self) -> Self { self + r }
+
+    fn saturating(self, r: Self) -> Self { self + r }
+
+    fn checked(self, r: Self) -> Option<Self> { Some(self + r) }
+}
+
+impl Add for f64 {
+    fn wrapping(self, r: Self) -> Self { self + r }
+
+    fn saturating(self, r: Self) -> Self { self + r }
+
+    fn checked(self, r: Self) -> Option<Self> { Some(self + r) }
+}
