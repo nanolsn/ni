@@ -35,7 +35,7 @@ use limits::*;
 
 #[derive(Debug)]
 pub struct MemoryPage<L> {
-    mem: Vec<u8>,
+    page: Vec<u8>,
     limit: std::marker::PhantomData<L>,
 }
 
@@ -45,42 +45,42 @@ impl<L> MemoryPage<L>
 {
     fn new() -> Self {
         Self {
-            mem: Vec::new(),
+            page: Vec::new(),
             limit: std::marker::PhantomData,
         }
     }
 
     pub fn expand(&mut self, size: usize) -> Result<(), MemoryError> {
-        let len = self.mem.len().saturating_add(size);
+        let len = self.page.len().saturating_add(size);
 
         if len > L::LIMIT {
             Err(MemoryError::PageOverflow(L::NAME))
         } else {
-            self.mem.resize(len, 0);
+            self.page.resize(len, 0);
             Ok(())
         }
     }
 
     pub fn narrow(&mut self, size: usize) -> Result<(), MemoryError> {
-        if self.mem.len() < size {
+        if self.page.len() < size {
             Err(MemoryError::PageOverflow(L::NAME))
         } else {
-            let len = self.mem.len() - size;
-            self.mem.truncate(len);
+            let len = self.page.len() - size;
+            self.page.truncate(len);
             Ok(())
         }
     }
 
-    pub fn len(&self) -> usize { self.mem.len() }
+    pub fn len(&self) -> usize { self.page.len() }
 
-    pub fn as_slice(&self) -> &[u8] { self.mem.as_slice() }
+    pub fn as_slice(&self) -> &[u8] { self.page.as_slice() }
 
     pub fn get(&self, ptr: usize, size: usize) -> Option<&[u8]> {
-        self.mem.get(ptr..ptr.wrapping_add(size))
+        self.page.get(ptr..ptr.wrapping_add(size))
     }
 
     pub fn get_mut(&mut self, ptr: usize, size: usize) -> Option<&mut [u8]> {
-        self.mem.get_mut(ptr..ptr.wrapping_add(size))
+        self.page.get_mut(ptr..ptr.wrapping_add(size))
     }
 
     pub fn memmove(&mut self, dest: usize, src: usize, size: usize) -> Result<(), MemoryError> {
@@ -92,7 +92,7 @@ impl<L> MemoryPage<L>
         } else if src_end.max(dest_end) > self.len() {
             Err(MemoryError::SegmentationFault)
         } else {
-            self.mem
+            self.page
                 .as_mut_slice()
                 .copy_within(src..src_end, dest);
 

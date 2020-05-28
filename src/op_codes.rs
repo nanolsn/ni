@@ -106,8 +106,11 @@ pub const PAR: u8 = 0x32;
 /// Call function.
 pub const CFN: u8 = 0x33;
 
+/// Return from function.
+pub const RET: u8 = 0x34;
+
 /// Input.
-pub const IN: u8 = 0x34;
+pub const IN: u8 = 0x35;
 
 /// Output.
-pub const OUT: u8 = 0x35;
+pub const OUT: u8 = 0x36;

@@ -153,6 +153,7 @@ pub enum Op {
     App(Operand),
     Par(UnOp, OpType, ParameterMode),
     Cfn(Operand),
+    Ret,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
