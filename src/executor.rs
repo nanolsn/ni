@@ -3,6 +3,19 @@ use super::{
     memory::*,
 };
 
+#[derive(Debug)]
+pub struct Function {
+    frame_size: usize,
+    program: Vec<Op>,
+}
+
+#[derive(Debug)]
+pub struct StackFrame<'f> {
+    function: &'f Function,
+    base_address: usize,
+    ret_address: usize,
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum ExecutionError {
     NotImplemented,
@@ -25,34 +38,42 @@ pub enum ExecutionSuccess {
 pub type Executed = Result<ExecutionSuccess, ExecutionError>;
 
 #[derive(Debug)]
-pub struct VM {
-    code_ptr: usize,
+pub struct Executor<'f> {
+    program_counter: usize,
     memory: Memory,
-    program: Vec<Op>,
+    functions: &'f [Function],
+    stack: Vec<StackFrame<'f>>,
 }
 
-impl VM {
-    pub fn new(program: Vec<Op>) -> Self {
+impl<'f> Executor<'f> {
+    pub fn new(functions: &'f [Function]) -> Self {
         Self {
-            code_ptr: 0,
+            program_counter: 0,
             memory: Memory::new(),
-            program,
+            functions,
+            stack: Vec::new(),
         }
     }
 
     pub fn execute(&mut self) -> Executed {
         use Op::*;
 
-        let op = self.program.get(self.code_ptr).ok_or(ExecutionError::EndOfProgram)?;
+        let op = todo!();
 
         let res = match op {
             Nop => Ok(ExecutionSuccess::Ok),
             End(x) => {
                 let code = x.get().ok_or(ExecutionError::IncorrectOperation)?;
+
+                // TODO: Destruct the operand.
+
                 Ok(ExecutionSuccess::End(code))
             }
             Slp(x) => {
                 let code = x.get().ok_or(ExecutionError::IncorrectOperation)?;
+
+                // TODO: Destruct the operand.
+
                 Ok(ExecutionSuccess::Sleep(code))
             }
             Set(_, _) => {
@@ -62,7 +83,7 @@ impl VM {
         };
 
         if res.is_ok() {
-            self.code_ptr += 1;
+            self.program_counter += 1;
         }
 
         res

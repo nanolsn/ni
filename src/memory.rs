@@ -2,8 +2,8 @@ use crate::Primary;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum MemoryError {
-    StackOverflow,
-    HeapOverflow,
+    PageOverflow(&'static str),
+    RageUnderflow(&'static str),
     SegmentationFault,
     WrongRange,
 }
@@ -11,6 +11,7 @@ pub enum MemoryError {
 mod limits {
     pub trait Limit {
         const LIMIT: usize;
+        const NAME: &'static str;
     }
 
     #[derive(Debug)]
@@ -18,6 +19,7 @@ mod limits {
 
     impl Limit for Stack {
         const LIMIT: usize = 1_usize << 23;
+        const NAME: &'static str = "stack";
     }
 
     #[derive(Debug)]
@@ -25,13 +27,14 @@ mod limits {
 
     impl Limit for Heap {
         const LIMIT: usize = 1_usize << 31;
+        const NAME: &'static str = "heap";
     }
 }
 
 use limits::*;
 
 #[derive(Debug)]
-struct MemoryPage<L> {
+pub struct MemoryPage<L> {
     mem: Vec<u8>,
     limit: std::marker::PhantomData<L>,
 }
@@ -47,30 +50,40 @@ impl<L> MemoryPage<L>
         }
     }
 
-    fn append(&mut self, size: usize) -> Result<(), MemoryError> {
-        let len = self.mem.len().wrapping_add(size);
+    pub fn expand(&mut self, size: usize) -> Result<(), MemoryError> {
+        let len = self.mem.len().saturating_add(size);
 
         if len > L::LIMIT {
-            Err(MemoryError::StackOverflow)
+            Err(MemoryError::PageOverflow(L::NAME))
         } else {
             self.mem.resize(len, 0);
             Ok(())
         }
     }
 
-    fn len(&self) -> usize { self.mem.len() }
+    pub fn narrow(&mut self, size: usize) -> Result<(), MemoryError> {
+        if self.mem.len() < size {
+            Err(MemoryError::PageOverflow(L::NAME))
+        } else {
+            let len = self.mem.len() - size;
+            self.mem.truncate(len);
+            Ok(())
+        }
+    }
 
-    fn as_slice(&self) -> &[u8] { self.mem.as_slice() }
+    pub fn len(&self) -> usize { self.mem.len() }
 
-    fn get(&self, ptr: usize, size: usize) -> Option<&[u8]> {
+    pub fn as_slice(&self) -> &[u8] { self.mem.as_slice() }
+
+    pub fn get(&self, ptr: usize, size: usize) -> Option<&[u8]> {
         self.mem.get(ptr..ptr.wrapping_add(size))
     }
 
-    fn get_mut(&mut self, ptr: usize, size: usize) -> Option<&mut [u8]> {
+    pub fn get_mut(&mut self, ptr: usize, size: usize) -> Option<&mut [u8]> {
         self.mem.get_mut(ptr..ptr.wrapping_add(size))
     }
 
-    fn memmove(&mut self, dest: usize, src: usize, size: usize) -> Result<(), MemoryError> {
+    pub fn memmove(&mut self, dest: usize, src: usize, size: usize) -> Result<(), MemoryError> {
         let src_end = src.wrapping_add(size);
         let dest_end = dest.wrapping_add(size);
 
@@ -90,8 +103,8 @@ impl<L> MemoryPage<L>
 
 #[derive(Debug)]
 pub struct Memory {
-    stack: MemoryPage<Stack>,
-    heap: MemoryPage<Heap>,
+    pub stack: MemoryPage<Stack>,
+    pub heap: MemoryPage<Heap>,
 }
 
 impl Memory {
@@ -103,10 +116,6 @@ impl Memory {
             heap: MemoryPage::new(),
         }
     }
-
-    pub fn append_stack(&mut self, size: usize) -> Result<(), MemoryError> { self.stack.append(size) }
-
-    pub fn append_heap(&mut self, size: usize) -> Result<(), MemoryError> { self.heap.append(size) }
 
     pub fn set<T>(&mut self, ptr: usize, value: T) -> Result<(), MemoryError>
         where
@@ -194,18 +203,18 @@ mod tests {
     #[test]
     fn memory_append() {
         let mut mem = Memory::new();
-        mem.append_stack(4).unwrap();
+        mem.stack.expand(4).unwrap();
         assert_eq!(mem.stack.len(), 4);
         assert_eq!(mem.stack.as_slice(), [0, 0, 0, 0]);
 
         let mut mem = Memory::new();
-        assert_eq!(mem.append_stack(usize::MAX), Err(MemoryError::StackOverflow));
+        assert_eq!(mem.stack.expand(usize::MAX), Err(MemoryError::PageOverflow("stack")));
     }
 
     #[test]
     fn memory_set_get_stack() {
         let mut mem = Memory::new();
-        mem.append_stack(9).unwrap();
+        mem.stack.expand(9).unwrap();
         mem.set(1, 0xFF000F0A_usize).unwrap();
         assert_eq!(mem.stack.as_slice(), [0, 10, 15, 0, 255, 0, 0, 0, 0]);
 
@@ -216,7 +225,7 @@ mod tests {
     #[test]
     fn memory_set_get_heap() {
         let mut mem = Memory::new();
-        mem.append_heap(9).unwrap();
+        mem.heap.expand(9).unwrap();
         mem.set(Memory::HEAP_BASE + 1, 0xFF000F0A_usize).unwrap();
         assert_eq!(mem.heap.as_slice(), [0, 10, 15, 0, 255, 0, 0, 0, 0]);
 
@@ -227,7 +236,7 @@ mod tests {
     #[test]
     fn memory_update() {
         let mut mem = Memory::new();
-        mem.append_stack(8).unwrap();
+        mem.stack.expand(8).unwrap();
         mem.set(0, 1).unwrap();
 
         mem.update(0, |v: u32| v + 1).unwrap();
@@ -244,19 +253,19 @@ mod tests {
     #[test]
     fn memory_copy() {
         let mut mem = Memory::new();
-        mem.append_stack(8).unwrap();
+        mem.stack.expand(8).unwrap();
         mem.set(0, 12).unwrap();
 
-        mem.append_heap(8).unwrap();
+        mem.heap.expand(8).unwrap();
         mem.copy(Memory::HEAP_BASE, 0, 8).unwrap();
 
         assert_eq!(mem.stack.as_slice(), mem.heap.as_slice());
 
         let mut mem = Memory::new();
-        mem.append_heap(8).unwrap();
+        mem.heap.expand(8).unwrap();
         mem.set(Memory::HEAP_BASE, 0xFF32).unwrap();
 
-        mem.append_stack(8).unwrap();
+        mem.stack.expand(8).unwrap();
         mem.copy(0, Memory::HEAP_BASE, 8).unwrap();
 
         assert_eq!(mem.stack.as_slice(), mem.heap.as_slice());
@@ -265,7 +274,7 @@ mod tests {
     #[test]
     fn memory_copy_move() {
         let mut mem = Memory::new();
-        mem.append_stack(16).unwrap();
+        mem.stack.expand(16).unwrap();
         mem.set(0, 0xFF04).unwrap();
 
         mem.copy(8, 0, 8).unwrap();
@@ -275,7 +284,7 @@ mod tests {
         ]);
 
         let mut mem = Memory::new();
-        mem.append_heap(16).unwrap();
+        mem.heap.expand(16).unwrap();
         mem.set(Memory::HEAP_BASE, 0xFF04).unwrap();
 
         mem.copy(Memory::HEAP_BASE + 8, Memory::HEAP_BASE, 8).unwrap();
@@ -288,10 +297,10 @@ mod tests {
     #[test]
     fn memory_copy_segmentation_fault() {
         let mut mem = Memory::new();
-        mem.append_stack(0).unwrap();
+        mem.stack.expand(0).unwrap();
         mem.copy(0, 0, 0).unwrap();
 
-        mem.append_stack(1).unwrap();
+        mem.stack.expand(1).unwrap();
         mem.copy(0, 0, 1).unwrap();
         mem.copy(1, 0, 0).unwrap();
         mem.copy(0, 1, 0).unwrap();
@@ -304,7 +313,7 @@ mod tests {
     #[test]
     fn memory_copy_wrong_range() {
         let mut mem = Memory::new();
-        mem.append_stack(2).unwrap();
+        mem.stack.expand(2).unwrap();
 
         assert_eq!(mem.copy(0, 1, usize::MAX), Err(MemoryError::WrongRange));
     }
