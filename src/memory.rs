@@ -104,13 +104,9 @@ impl Memory {
         }
     }
 
-    pub fn append_stack(&mut self, size: usize) -> Result<(), MemoryError> {
-        self.stack.append(size)
-    }
+    pub fn append_stack(&mut self, size: usize) -> Result<(), MemoryError> { self.stack.append(size) }
 
-    pub fn append_heap(&mut self, size: usize) -> Result<(), MemoryError> {
-        self.heap.append(size)
-    }
+    pub fn append_heap(&mut self, size: usize) -> Result<(), MemoryError> { self.heap.append(size) }
 
     pub fn set<T>(&mut self, ptr: usize, value: T) -> Result<(), MemoryError>
         where

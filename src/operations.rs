@@ -88,10 +88,10 @@ impl UnOp {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct BinOp {
-    x: Operand,
-    x_offset: Option<Operand>,
-    y: Operand,
-    y_offset: Option<Operand>,
+    pub x: Operand,
+    pub x_offset: Option<Operand>,
+    pub y: Operand,
+    pub y_offset: Option<Operand>,
 }
 
 impl BinOp {

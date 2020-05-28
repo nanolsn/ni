@@ -4,45 +4,61 @@ use super::{
 };
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum ExecuteError {
+pub enum ExecutionError {
     NotImplemented,
-    NoProgram,
-    IncorrectOperation,
+    EndOfProgram,
+    MemoryError(MemoryError),
+    IncorrectOperation, // TODO: What the operation?
 }
+
+impl From<MemoryError> for ExecutionError {
+    fn from(e: MemoryError) -> Self { ExecutionError::MemoryError(e) }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ExecutionSuccess {
+    Ok,
+    End(usize),
+    Sleep(usize),
+}
+
+pub type Executed = Result<ExecutionSuccess, ExecutionError>;
 
 #[derive(Debug)]
 pub struct VM {
     code_ptr: usize,
     memory: Memory,
-    ended: Option<usize>,
+    program: Vec<Op>,
 }
 
 impl VM {
-    pub fn new() -> Self {
+    pub fn new(program: Vec<Op>) -> Self {
         Self {
             code_ptr: 0,
             memory: Memory::new(),
-            ended: None,
+            program,
         }
     }
 
-    pub fn ended(&self) -> Option<usize> { self.ended }
-
-    pub fn execute(&mut self) -> Result<(), ExecuteError> {
+    pub fn execute(&mut self) -> Executed {
         use Op::*;
 
-        // TODO: Get operation.
-        let op = Nop;
+        let op = self.program.get(self.code_ptr).ok_or(ExecutionError::EndOfProgram)?;
 
         let res = match op {
-            Nop => Ok(()),
+            Nop => Ok(ExecutionSuccess::Ok),
             End(x) => {
-                let code = x.get().ok_or(ExecuteError::IncorrectOperation)?;
-                self.ended = Some(code);
-                Ok(())
+                let code = x.get().ok_or(ExecutionError::IncorrectOperation)?;
+                Ok(ExecutionSuccess::End(code))
             }
-            Slp(_) => Ok(()),
-            _ => Err(ExecuteError::NotImplemented),
+            Slp(x) => {
+                let code = x.get().ok_or(ExecutionError::IncorrectOperation)?;
+                Ok(ExecutionSuccess::Sleep(code))
+            }
+            Set(_, _) => {
+                todo!()
+            }
+            _ => Err(ExecutionError::NotImplemented),
         };
 
         if res.is_ok() {
