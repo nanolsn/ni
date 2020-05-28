@@ -242,7 +242,6 @@ impl Decode<()> for Operand {
         const SIZE_BITS: u8 = 0b0000_1111;
         const KIND_BITS: u8 = 0b0111_0000;
         const LONG_OPERAND_BIT: u8 = 0b1000_0000;
-        const SIZEOF_USIZE: usize = std::mem::size_of::<usize>();
 
         let byte = bytes.next().ok_or(DecodeError::UnexpectedEnd)?;
 
@@ -251,7 +250,7 @@ impl Decode<()> for Operand {
         }
 
         let size = (byte & SIZE_BITS) as usize + 1;
-        let mut buf: [u8; SIZEOF_USIZE] = [0; SIZEOF_USIZE];
+        let mut buf = [0; std::mem::size_of::<usize>()];
 
         for i in 0..size {
             buf[i] = bytes.next().ok_or(DecodeError::UnexpectedEnd)?;

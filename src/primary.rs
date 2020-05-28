@@ -21,13 +21,13 @@ macro_rules! impl_primary {
             fn from_bytes(bytes: Self::Bytes) -> Self { Self::from_ne_bytes(bytes) }
 
             fn from_slice(slice: &[u8]) -> Self {
-                let mut bytes: Self::Bytes = [0; Self::SIZE];
+                let mut buf = [0; Self::SIZE];
 
                 for (i, b) in slice.iter().enumerate() {
-                    bytes[i] = *b;
+                    buf[i] = *b;
                 }
 
-                Self::from_bytes(bytes)
+                Self::from_bytes(buf)
             }
         }
         )+
