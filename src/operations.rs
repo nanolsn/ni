@@ -56,14 +56,28 @@ impl Operand {
     }
 
     pub fn get(self) -> Option<usize> {
-        return match self {
+        match self {
             Operand::Loc(v) => Some(v),
             Operand::Ind(v) => Some(v),
             Operand::Ret(v) => Some(v),
             Operand::Val(v) => Some(v),
             Operand::Ref(v) => Some(v),
             Operand::Emp => None,
-        };
+        }
+    }
+
+    pub fn map<F>(self, f: F) -> Self
+        where
+            F: FnOnce(usize) -> usize,
+    {
+        match self {
+            Operand::Loc(v) => Operand::Loc(f(v)),
+            Operand::Ind(v) => Operand::Ind(f(v)),
+            Operand::Ret(v) => Operand::Ret(f(v)),
+            Operand::Val(v) => Operand::Val(f(v)),
+            Operand::Ref(v) => Operand::Ref(f(v)),
+            Operand::Emp => Operand::Emp,
+        }
     }
 }
 
@@ -73,8 +87,8 @@ impl From<u8> for Operand {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct UnOp {
-    x: Operand,
-    x_offset: Option<Operand>,
+    pub x: Operand,
+    pub x_offset: Option<Operand>,
 }
 
 impl UnOp {

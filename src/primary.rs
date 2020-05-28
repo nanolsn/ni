@@ -8,6 +8,10 @@ pub trait Primary: Sized {
     fn from_bytes(bytes: Self::Bytes) -> Self;
 
     fn from_slice(slice: &[u8]) -> Self;
+
+    fn zero() -> Self;
+
+    fn from_usize(val: usize) -> Self;
 }
 
 macro_rules! impl_primary {
@@ -16,15 +20,28 @@ macro_rules! impl_primary {
         impl Primary for $t {
             type Bytes = [u8; std::mem::size_of::<Self>()];
 
-            fn to_bytes(&self) -> Self::Bytes { self.to_ne_bytes() }
+            fn to_bytes(&self) -> Self::Bytes { self.to_le_bytes() }
 
-            fn from_bytes(bytes: Self::Bytes) -> Self { Self::from_ne_bytes(bytes) }
+            fn from_bytes(bytes: Self::Bytes) -> Self { Self::from_le_bytes(bytes) }
 
             fn from_slice(slice: &[u8]) -> Self {
                 let mut buf = [0; Self::SIZE];
 
                 for (i, b) in slice.iter().enumerate() {
                     buf[i] = *b;
+                }
+
+                Self::from_bytes(buf)
+            }
+
+            fn zero() -> Self { 0 as $t }
+
+            fn from_usize(val: usize) -> Self {
+                let mut buf = [0; Self::SIZE];
+                let ubytes = usize::to_le_bytes(val);
+
+                for i in 0..Self::SIZE.min(std::mem::size_of::<usize>()) {
+                    buf[i] = ubytes[i];
                 }
 
                 Self::from_bytes(buf)
