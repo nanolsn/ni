@@ -1,19 +1,3 @@
-fn f32_as_u32_bytes(val: f32) -> u32 {
-    unsafe { std::mem::transmute(val) }
-}
-
-fn f64_as_u64_bytes(val: f64) -> u64 {
-    unsafe { std::mem::transmute(val) }
-}
-
-fn u32_bytes_as_f32(val: u32) -> f32 {
-    unsafe { std::mem::transmute(val) }
-}
-
-fn u64_bytes_as_f64(val: u64) -> f64 {
-    unsafe { std::mem::transmute(val) }
-}
-
 pub trait Primary: Sized {
     const SIZE: usize = std::mem::size_of::<Self>();
 
@@ -208,22 +192,6 @@ macro_rules! impl_shr {
 }
 
 impl_shr!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
-
-macro_rules! impl_zero_fns {
-    () => {
-        fn wrapping(self, _: Self) -> Self { Primary::zero() }
-        fn saturating(self, _: Self) -> Self { Primary::zero() }
-        fn checked(self, _: Self) -> Option<Self> { Some(Primary::zero()) }
-    };
-}
-
-impl Shl for f32 { impl_zero_fns!(); }
-
-impl Shl for f64 { impl_zero_fns!(); }
-
-impl Shr for f32 { impl_zero_fns!(); }
-
-impl Shr for f64 { impl_zero_fns!(); }
 
 pub trait Neg: Primary {
     fn wrapping(self) -> Self;

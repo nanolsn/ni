@@ -4,14 +4,14 @@ use super::{
 };
 
 #[derive(Debug)]
-pub struct Function {
+pub struct Function<'f> {
     frame_size: usize,
-    program: Vec<Op>,
+    program: &'f [Op],
 }
 
 #[derive(Debug)]
 pub struct FunctionCall<'f> {
-    function: &'f Function,
+    function: &'f Function<'f>,
     base_address: usize,
     ret_address: usize,
     ret_program_counter: usize,
@@ -43,7 +43,7 @@ pub type Executed = Result<ExecutionSuccess, ExecutionError>;
 
 #[derive(Debug)]
 pub struct Executor<'f> {
-    functions: &'f [Function],
+    functions: &'f [Function<'f>],
     memory: Memory,
     program_counter: usize,
     call_stack: Vec<FunctionCall<'f>>,
@@ -453,8 +453,8 @@ impl<'f> Executor<'f> {
                     I64 => self.exec_shl::<i64, i128>(bin, mode)?,
                     Uw => self.exec_shl::<usize, usize>(bin, mode)?,
                     Iw => self.exec_shl::<isize, isize>(bin, mode)?,
-                    F32 => self.exec_shl::<f32, f32>(bin, mode)?,
-                    F64 => self.exec_shl::<f64, f64>(bin, mode)?,
+                    F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                    F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }
 
                 Ok(ExecutionSuccess::Ok)
@@ -471,8 +471,8 @@ impl<'f> Executor<'f> {
                     I64 => self.exec_shr::<i64, i128>(bin, mode)?,
                     Uw => self.exec_shr::<usize, usize>(bin, mode)?,
                     Iw => self.exec_shr::<isize, isize>(bin, mode)?,
-                    F32 => self.exec_shr::<f32, f32>(bin, mode)?,
-                    F64 => self.exec_shr::<f64, f64>(bin, mode)?,
+                    F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                    F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }
 
                 Ok(ExecutionSuccess::Ok)
@@ -603,6 +603,10 @@ impl<'f> Executor<'f> {
 
                 Ok(ExecutionSuccess::Ok)
             }
+            Go(x) => {
+                self.program_counter = self.get_val(x)?;
+                return Ok(ExecutionSuccess::Ok);
+            }
             _ => Err(ExecutionError::NotImplemented),
         };
 
@@ -623,7 +627,7 @@ mod tests {
         let functions = [
             Function {
                 frame_size: 8,
-                program: vec![
+                program: &[
                     Op::Nop
                 ],
             },
@@ -672,7 +676,7 @@ mod tests {
         let functions = [
             Function {
                 frame_size: 4,
-                program: vec![
+                program: &[
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(12)), OpType::I32),
                     Op::Set(BinOp::new(Operand::Val(0), Operand::Val(12)), OpType::I32),
                     Op::Set(BinOp::new(Operand::Emp, Operand::Val(12)), OpType::I32),
@@ -710,7 +714,7 @@ mod tests {
         let functions = [
             Function {
                 frame_size: 8,
-                program: vec![
+                program: &[
                     Op::Add(
                         BinOp::new(Operand::Loc(0), Operand::Val(12)),
                         OpType::I32,
@@ -765,7 +769,7 @@ mod tests {
         let functions = [
             Function {
                 frame_size: 8,
-                program: vec![
+                program: &[
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(8)), OpType::I32),
                     Op::Set(BinOp::new(Operand::Loc(4), Operand::Val(5)), OpType::I32),
                     Op::Mul(
@@ -798,7 +802,7 @@ mod tests {
         let functions = [
             Function {
                 frame_size: 8,
-                program: vec![
+                program: &[
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(8)), OpType::I32),
                     Op::Set(BinOp::new(Operand::Loc(4), Operand::Val(5)), OpType::I32),
                     Op::Div(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::I32),
@@ -818,5 +822,30 @@ mod tests {
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
         assert_eq!(exe.get_val::<i32>(Operand::Loc(4)), Ok(2));
         assert_eq!(exe.execute(), Executed::Err(ExecutionError::DivisionByZero));
+    }
+
+    #[test]
+    fn executor_go() {
+        let functions = [
+            Function {
+                frame_size: 4,
+                program: &[
+                    Op::Inc(UnOp::new(Operand::Loc(0)), OpType::U32, ArithmeticMode::default()),
+                    Op::Go(Operand::Val(0)),
+                ],
+            },
+        ];
+
+        let mut exe = Executor::new(&functions);
+        exe.call(0, 0).unwrap();
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(1));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(2));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(3));
     }
 }
