@@ -22,9 +22,7 @@ pub enum ExecutionError {
     NotImplemented,
     EndOfProgram,
     MemoryError(MemoryError),
-
-    // TODO: What the operation?
-    IncorrectOperation,
+    IncorrectOperation(Op),
     UnknownFunction,
     OperationOverflow,
     DivisionByZero,
@@ -121,8 +119,14 @@ impl<'f> Executor<'f> {
         Ok(())
     }
 
-    fn current_function(&self) -> Result<&FunctionCall, ExecutionError> {
+    fn current_call(&self) -> Result<&FunctionCall, ExecutionError> {
         self.call_stack.last().ok_or(ExecutionError::EndOfProgram)
+    }
+
+    fn current_op(&self) -> Result<&Op, ExecutionError> {
+        self.current_call()?.function.program
+            .get(self.program_counter)
+            .ok_or(ExecutionError::EndOfProgram)
     }
 
     fn get_val<T>(&self, operand: Operand) -> Result<T, ExecutionError>
@@ -131,19 +135,19 @@ impl<'f> Executor<'f> {
     {
         Ok(match operand {
             Operand::Loc(loc) => self.memory.get(
-                self.current_function()?.base_address.wrapping_add(loc)
+                self.current_call()?.base_address.wrapping_add(loc)
             )?,
             Operand::Ind(ptr) => self.memory.get(
-                self.memory.get(self.current_function()?.base_address.wrapping_add(ptr))?
+                self.memory.get(self.current_call()?.base_address.wrapping_add(ptr))?
             )?,
             Operand::Ret(ret) => self.memory.get(
-                self.current_function()?.ret_address.wrapping_add(ret)
+                self.current_call()?.ret_address.wrapping_add(ret)
             )?,
             Operand::Val(val) => T::from_usize(val),
             Operand::Ref(var) => T::from_usize(
-                self.current_function()?.base_address.wrapping_add(var)
+                self.current_call()?.base_address.wrapping_add(var)
             ),
-            Operand::Emp => return Err(ExecutionError::IncorrectOperation),
+            Operand::Emp => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
         })
     }
 
@@ -153,20 +157,20 @@ impl<'f> Executor<'f> {
     {
         Ok(match operand {
             Operand::Loc(loc) => self.memory.set(
-                self.current_function()?.base_address.wrapping_add(loc),
+                self.current_call()?.base_address.wrapping_add(loc),
                 val,
             )?,
             Operand::Ind(ptr) => self.memory.set(
-                self.memory.get(self.current_function()?.base_address.wrapping_add(ptr))?,
+                self.memory.get(self.current_call()?.base_address.wrapping_add(ptr))?,
                 val,
             )?,
             Operand::Ret(ret) => self.memory.set(
-                self.current_function()?.ret_address.wrapping_add(ret),
+                self.current_call()?.ret_address.wrapping_add(ret),
                 val,
             )?,
-            Operand::Val(_) => return Err(ExecutionError::IncorrectOperation),
-            Operand::Ref(_) => return Err(ExecutionError::IncorrectOperation),
-            Operand::Emp => return Err(ExecutionError::IncorrectOperation),
+            Operand::Val(_) => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+            Operand::Ref(_) => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+            Operand::Emp => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
         })
     }
 
@@ -257,9 +261,7 @@ impl<'f> Executor<'f> {
         use Op::*;
         use OpType::*;
 
-        let &op = self.current_function()?.function.program
-            .get(self.program_counter)
-            .ok_or(ExecutionError::EndOfProgram)?;
+        let &op = self.current_op()?;
 
         let res = match op {
             Nop => Ok(ExecutionSuccess::Ok),
@@ -399,7 +401,9 @@ mod tests {
         let functions = [
             Function {
                 frame_size: 8,
-                program: vec![],
+                program: vec![
+                    Op::Nop
+                ],
             },
         ];
 
@@ -416,14 +420,26 @@ mod tests {
         assert_eq!(exe.set_val(Operand::Ret(0), 3), Ok(()));
         assert_eq!(exe.get_val::<usize>(Operand::Ret(0)), Ok(3));
 
-        assert_eq!(exe.set_val(Operand::Val(7), 0), Err(ExecutionError::IncorrectOperation));
+        assert_eq!(
+            exe.set_val(Operand::Val(7), 0),
+            Err(ExecutionError::IncorrectOperation(Op::Nop)),
+        );
         assert_eq!(exe.get_val::<usize>(Operand::Val(8)), Ok(8));
 
-        assert_eq!(exe.set_val(Operand::Ref(0), 0), Err(ExecutionError::IncorrectOperation));
+        assert_eq!(
+            exe.set_val(Operand::Ref(0), 0),
+            Err(ExecutionError::IncorrectOperation(Op::Nop)),
+        );
         assert_eq!(exe.get_val::<usize>(Operand::Ref(0)), Ok(8));
 
-        assert_eq!(exe.set_val(Operand::Emp, 0), Err(ExecutionError::IncorrectOperation));
-        assert_eq!(exe.get_val::<usize>(Operand::Emp), Err(ExecutionError::IncorrectOperation));
+        assert_eq!(
+            exe.set_val(Operand::Emp, 0),
+            Err(ExecutionError::IncorrectOperation(Op::Nop)),
+        );
+        assert_eq!(
+            exe.get_val::<usize>(Operand::Emp),
+            Err(ExecutionError::IncorrectOperation(Op::Nop)),
+        );
     }
 
     #[test]
@@ -450,10 +466,14 @@ mod tests {
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
         assert_eq!(exe.get_val::<i32>(Operand::Loc(0)), Ok(12));
 
-        assert_eq!(exe.execute(), Executed::Err(ExecutionError::IncorrectOperation));
+        assert_eq!(exe.execute(), Executed::Err(ExecutionError::IncorrectOperation(
+            Op::Set(BinOp::new(Operand::Val(0), Operand::Val(12)), OpType::I32)
+        )));
         exe.program_counter += 1; // Move manually after incorrect operation
 
-        assert_eq!(exe.execute(), Executed::Err(ExecutionError::IncorrectOperation));
+        assert_eq!(exe.execute(), Executed::Err(ExecutionError::IncorrectOperation(
+            Op::Set(BinOp::new(Operand::Emp, Operand::Val(12)), OpType::I32)
+        )));
         exe.program_counter += 1; // Move manually after incorrect operation
 
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
