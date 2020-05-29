@@ -27,6 +27,7 @@ pub enum ExecutionError {
     IncorrectOperation,
     UnknownFunction,
     OperationOverflow,
+    DivisionByZero,
 }
 
 impl From<MemoryError> for ExecutionError {
@@ -205,6 +206,29 @@ impl<'f> Executor<'f> {
         self.set_val(left, f(self.get_val(left)?, self.get_val(right)?))
     }
 
+    fn update_bin_division<T, F>(&mut self, bin: BinOp, f: F) -> Result<(), ExecutionError>
+        where
+            T: Primary + PartialEq,
+            F: FnOnce(T, T) -> T,
+    {
+        let mut div_by_zero = false;
+
+        let res = self.update_bin::<T, T, _>(bin, |x, y| {
+            if y == T::zero() {
+                div_by_zero = true;
+                T::zero()
+            } else {
+                f(x, y)
+            }
+        });
+
+        if div_by_zero {
+            return Err(ExecutionError::DivisionByZero);
+        }
+
+        res
+    }
+
     fn make_offset(&self, a: Operand, offset: Operand) -> Result<Operand, ExecutionError> {
         let a_offset: usize = self.get_val(offset)?;
         Ok(a.map(|a| a.wrapping_add(a_offset)))
@@ -221,13 +245,13 @@ impl<'f> Executor<'f> {
 
     fn exec_div<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
         where
-            T: Primary + std::ops::Div<Output=T>,
-    { self.update_bin::<T, T, _>(bin, |x, y| x / y) }
+            T: Primary + PartialEq + std::ops::Div<Output=T>,
+    { self.update_bin_division::<T, _>(bin, |x, y| x / y) }
 
     fn exec_mod<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
         where
-            T: Primary + std::ops::Rem<Output=T>,
-    { self.update_bin::<T, T, _>(bin, |x, y| x % y) }
+            T: Primary + PartialEq + std::ops::Rem<Output=T>,
+    { self.update_bin_division::<T, _>(bin, |x, y| x % y) }
 
     pub fn execute(&mut self) -> Executed {
         use Op::*;
@@ -492,5 +516,65 @@ mod tests {
 
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
         assert_eq!(exe.execute(), Executed::Err(ExecutionError::OperationOverflow));
+    }
+
+    #[test]
+    fn executor_mul() {
+        let functions = [
+            Function {
+                frame_size: 8,
+                program: vec![
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(8)), OpType::I32),
+                    Op::Set(BinOp::new(Operand::Loc(4), Operand::Val(5)), OpType::I32),
+                    Op::Mul(
+                        BinOp::new(Operand::Loc(0), Operand::Val(2)),
+                        OpType::I32,
+                        ArithmeticMode::default(),
+                    ),
+                    Op::Mul(
+                        BinOp::new(Operand::Loc(4), Operand::Val(2)),
+                        OpType::I32,
+                        ArithmeticMode::default(),
+                    ),
+                ],
+            },
+        ];
+
+        let mut exe = Executor::new(&functions);
+        exe.call(0, 0).unwrap();
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<i32>(Operand::Loc(0)), Ok(16));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<i32>(Operand::Loc(4)), Ok(10));
+    }
+
+    #[test]
+    fn executor_div() {
+        let functions = [
+            Function {
+                frame_size: 8,
+                program: vec![
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(8)), OpType::I32),
+                    Op::Set(BinOp::new(Operand::Loc(4), Operand::Val(5)), OpType::I32),
+                    Op::Div(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::I32),
+                    Op::Div(BinOp::new(Operand::Loc(4), Operand::Val(2)), OpType::I32),
+                    Op::Div(BinOp::new(Operand::Loc(0), Operand::Val(0)), OpType::I32),
+                ],
+            },
+        ];
+
+        let mut exe = Executor::new(&functions);
+        exe.call(0, 0).unwrap();
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<i32>(Operand::Loc(0)), Ok(4));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<i32>(Operand::Loc(4)), Ok(2));
+        assert_eq!(exe.execute(), Executed::Err(ExecutionError::DivisionByZero));
     }
 }
