@@ -85,6 +85,39 @@ macro_rules! impl_exec_bin {
     };
 }
 
+macro_rules! impl_exec_un {
+    ($name:ident, $tr:ident) => {
+        fn $name<T: $tr, U: $tr + From<T>>(&mut self, un: UnOp, mode: ArithmeticMode)
+            -> Result<(), ExecutionError> {
+            use ArithmeticMode::*;
+
+            match mode {
+                Wrap => self.update_un::<T, T, _>(un, |x| x.wrapping()),
+                Sat => self.update_un::<T, T, _>(un, |x| x.saturating()),
+                Wide => self.update_un::<T, U, _>(un, |x| U::from(x).wrapping()),
+                Hand => {
+                    let mut overflowed = false;
+
+                    self.update_un::<T, T, _>(un, |x| {
+                        if let Some(s) = x.checked() {
+                            s
+                        } else {
+                            overflowed = true;
+                            <T as Primary>::zero()
+                        }
+                    })?;
+
+                    if overflowed {
+                        Err(ExecutionError::OperationOverflow)
+                    } else {
+                        Ok(())
+                    }
+                }
+            }
+        }
+    };
+}
+
 impl<'f> Executor<'f> {
     pub fn new(functions: &'f [Function]) -> Self {
         Self {
@@ -257,6 +290,33 @@ impl<'f> Executor<'f> {
             T: Primary + PartialEq + std::ops::Rem<Output=T>,
     { self.update_bin_division::<T, _>(bin, |x, y| x % y) }
 
+    impl_exec_bin!(exec_shl, Shl);
+    impl_exec_bin!(exec_shr, Shr);
+
+    fn exec_and<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
+        where
+            T: Primary + std::ops::BitAnd<Output=T>,
+    { self.update_bin::<T, T, _>(bin, |x, y| x & y) }
+
+    fn exec_or<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
+        where
+            T: Primary + std::ops::BitOr<Output=T>,
+    { self.update_bin::<T, T, _>(bin, |x, y| x | y) }
+
+    fn exec_xor<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
+        where
+            T: Primary + std::ops::BitXor<Output=T>,
+    { self.update_bin::<T, T, _>(bin, |x, y| x ^ y) }
+
+    fn exec_not<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
+        where
+            T: Primary + std::ops::Not<Output=T>,
+    { self.update_un::<T, T, _>(un, |y| !y) }
+
+    impl_exec_un!(exec_neg, Neg);
+    impl_exec_un!(exec_inc, Inc);
+    impl_exec_un!(exec_dec, Dec);
+
     pub fn execute(&mut self) -> Executed {
         use Op::*;
         use OpType::*;
@@ -377,6 +437,168 @@ impl<'f> Executor<'f> {
                     Iw => self.exec_mod::<isize>(bin)?,
                     F32 => self.exec_mod::<f32>(bin)?,
                     F64 => self.exec_mod::<f64>(bin)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Shl(bin, ot, mode) => {
+                match ot {
+                    U8 => self.exec_shl::<u8, u16>(bin, mode)?,
+                    I8 => self.exec_shl::<i8, i16>(bin, mode)?,
+                    U16 => self.exec_shl::<u16, u32>(bin, mode)?,
+                    I16 => self.exec_shl::<i16, i32>(bin, mode)?,
+                    U32 => self.exec_shl::<u32, u64>(bin, mode)?,
+                    I32 => self.exec_shl::<i32, i64>(bin, mode)?,
+                    U64 => self.exec_shl::<u64, u128>(bin, mode)?,
+                    I64 => self.exec_shl::<i64, i128>(bin, mode)?,
+                    Uw => self.exec_shl::<usize, usize>(bin, mode)?,
+                    Iw => self.exec_shl::<isize, isize>(bin, mode)?,
+                    F32 => self.exec_shl::<f32, f32>(bin, mode)?,
+                    F64 => self.exec_shl::<f64, f64>(bin, mode)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Shr(bin, ot, mode) => {
+                match ot {
+                    U8 => self.exec_shr::<u8, u16>(bin, mode)?,
+                    I8 => self.exec_shr::<i8, i16>(bin, mode)?,
+                    U16 => self.exec_shr::<u16, u32>(bin, mode)?,
+                    I16 => self.exec_shr::<i16, i32>(bin, mode)?,
+                    U32 => self.exec_shr::<u32, u64>(bin, mode)?,
+                    I32 => self.exec_shr::<i32, i64>(bin, mode)?,
+                    U64 => self.exec_shr::<u64, u128>(bin, mode)?,
+                    I64 => self.exec_shr::<i64, i128>(bin, mode)?,
+                    Uw => self.exec_shr::<usize, usize>(bin, mode)?,
+                    Iw => self.exec_shr::<isize, isize>(bin, mode)?,
+                    F32 => self.exec_shr::<f32, f32>(bin, mode)?,
+                    F64 => self.exec_shr::<f64, f64>(bin, mode)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            And(bin, ot) => {
+                match ot {
+                    U8 => self.exec_and::<u8>(bin)?,
+                    I8 => self.exec_and::<i8>(bin)?,
+                    U16 => self.exec_and::<u16>(bin)?,
+                    I16 => self.exec_and::<i16>(bin)?,
+                    U32 => self.exec_and::<u32>(bin)?,
+                    I32 => self.exec_and::<i32>(bin)?,
+                    U64 => self.exec_and::<u64>(bin)?,
+                    I64 => self.exec_and::<i64>(bin)?,
+                    Uw => self.exec_and::<usize>(bin)?,
+                    Iw => self.exec_and::<isize>(bin)?,
+                    F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                    F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Or(bin, ot) => {
+                match ot {
+                    U8 => self.exec_or::<u8>(bin)?,
+                    I8 => self.exec_or::<i8>(bin)?,
+                    U16 => self.exec_or::<u16>(bin)?,
+                    I16 => self.exec_or::<i16>(bin)?,
+                    U32 => self.exec_or::<u32>(bin)?,
+                    I32 => self.exec_or::<i32>(bin)?,
+                    U64 => self.exec_or::<u64>(bin)?,
+                    I64 => self.exec_or::<i64>(bin)?,
+                    Uw => self.exec_or::<usize>(bin)?,
+                    Iw => self.exec_or::<isize>(bin)?,
+                    F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                    F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Xor(bin, ot) => {
+                match ot {
+                    U8 => self.exec_xor::<u8>(bin)?,
+                    I8 => self.exec_xor::<i8>(bin)?,
+                    U16 => self.exec_xor::<u16>(bin)?,
+                    I16 => self.exec_xor::<i16>(bin)?,
+                    U32 => self.exec_xor::<u32>(bin)?,
+                    I32 => self.exec_xor::<i32>(bin)?,
+                    U64 => self.exec_xor::<u64>(bin)?,
+                    I64 => self.exec_xor::<i64>(bin)?,
+                    Uw => self.exec_xor::<usize>(bin)?,
+                    Iw => self.exec_xor::<isize>(bin)?,
+                    F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                    F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Not(un, ot) => {
+                match ot {
+                    U8 => self.exec_not::<u8>(un)?,
+                    I8 => self.exec_not::<i8>(un)?,
+                    U16 => self.exec_not::<u16>(un)?,
+                    I16 => self.exec_not::<i16>(un)?,
+                    U32 => self.exec_not::<u32>(un)?,
+                    I32 => self.exec_not::<i32>(un)?,
+                    U64 => self.exec_not::<u64>(un)?,
+                    I64 => self.exec_not::<i64>(un)?,
+                    Uw => self.exec_not::<usize>(un)?,
+                    Iw => self.exec_not::<isize>(un)?,
+                    F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                    F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Neg(un, ot, mode) => {
+                match ot {
+                    U8 => self.exec_neg::<u8, u16>(un, mode)?,
+                    I8 => self.exec_neg::<i8, i16>(un, mode)?,
+                    U16 => self.exec_neg::<u16, u32>(un, mode)?,
+                    I16 => self.exec_neg::<i16, i32>(un, mode)?,
+                    U32 => self.exec_neg::<u32, u64>(un, mode)?,
+                    I32 => self.exec_neg::<i32, i64>(un, mode)?,
+                    U64 => self.exec_neg::<u64, u128>(un, mode)?,
+                    I64 => self.exec_neg::<i64, i128>(un, mode)?,
+                    Uw => self.exec_neg::<usize, usize>(un, mode)?,
+                    Iw => self.exec_neg::<isize, isize>(un, mode)?,
+                    F32 => self.exec_neg::<f32, f32>(un, mode)?,
+                    F64 => self.exec_neg::<f64, f64>(un, mode)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Inc(un, ot, mode) => {
+                match ot {
+                    U8 => self.exec_inc::<u8, u16>(un, mode)?,
+                    I8 => self.exec_inc::<i8, i16>(un, mode)?,
+                    U16 => self.exec_inc::<u16, u32>(un, mode)?,
+                    I16 => self.exec_inc::<i16, i32>(un, mode)?,
+                    U32 => self.exec_inc::<u32, u64>(un, mode)?,
+                    I32 => self.exec_inc::<i32, i64>(un, mode)?,
+                    U64 => self.exec_inc::<u64, u128>(un, mode)?,
+                    I64 => self.exec_inc::<i64, i128>(un, mode)?,
+                    Uw => self.exec_inc::<usize, usize>(un, mode)?,
+                    Iw => self.exec_inc::<isize, isize>(un, mode)?,
+                    F32 => self.exec_inc::<f32, f32>(un, mode)?,
+                    F64 => self.exec_inc::<f64, f64>(un, mode)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Dec(un, ot, mode) => {
+                match ot {
+                    U8 => self.exec_dec::<u8, u16>(un, mode)?,
+                    I8 => self.exec_dec::<i8, i16>(un, mode)?,
+                    U16 => self.exec_dec::<u16, u32>(un, mode)?,
+                    I16 => self.exec_dec::<i16, i32>(un, mode)?,
+                    U32 => self.exec_dec::<u32, u64>(un, mode)?,
+                    I32 => self.exec_dec::<i32, i64>(un, mode)?,
+                    U64 => self.exec_dec::<u64, u128>(un, mode)?,
+                    I64 => self.exec_dec::<i64, i128>(un, mode)?,
+                    Uw => self.exec_dec::<usize, usize>(un, mode)?,
+                    Iw => self.exec_dec::<isize, isize>(un, mode)?,
+                    F32 => self.exec_dec::<f32, f32>(un, mode)?,
+                    F64 => self.exec_dec::<f64, f64>(un, mode)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)
