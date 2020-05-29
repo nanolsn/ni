@@ -50,6 +50,42 @@ pub struct Executor<'f> {
     call_stack: Vec<FunctionCall<'f>>,
 }
 
+macro_rules! impl_exec_bin {
+    ($name:ident, $tr:ident) => {
+        fn $name<T: $tr, U: $tr + From<T>>(&mut self, bin: BinOp, mode: ArithmeticMode)
+            -> Result<(), ExecutionError> {
+            use ArithmeticMode::*;
+
+            match mode {
+                Wrap => self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y)),
+                Sat => self.update_bin::<T, T, _>(bin, |x, y| x.saturating(y)),
+                Wide => self.update_bin::<T, U, _>(
+                    bin,
+                    |x, y| U::from(x).wrapping(U::from(y)),
+                ),
+                Hand => {
+                    let mut overflowed = false;
+
+                    self.update_bin::<T, T, _>(bin, |x, y| {
+                        if let Some(s) = x.checked(y) {
+                            s
+                        } else {
+                            overflowed = true;
+                            <T as Primary>::zero()
+                        }
+                    })?;
+
+                    if overflowed {
+                        Err(ExecutionError::OperationOverflow)
+                    } else {
+                        Ok(())
+                    }
+                }
+            }
+        }
+    };
+}
+
 impl<'f> Executor<'f> {
     pub fn new(functions: &'f [Function]) -> Self {
         Self {
@@ -174,45 +210,24 @@ impl<'f> Executor<'f> {
         Ok(a.map(|a| a.wrapping_add(a_offset)))
     }
 
-    fn set<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
+    fn exec_set<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
         where
             T: Primary,
     { self.update_bin::<T, T, _>(bin, |_, y| y) }
 
-    fn add<T, U>(&mut self, bin: BinOp, mode: ArithmeticMode) -> Result<(), ExecutionError>
+    impl_exec_bin!(exec_add, Add);
+    impl_exec_bin!(exec_sub, Sub);
+    impl_exec_bin!(exec_mul, Mul);
+
+    fn exec_div<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
         where
-            T: Add,
-            U: Add + From<T>,
-    {
-        use ArithmeticMode::*;
+            T: Primary + std::ops::Div<Output=T>,
+    { self.update_bin::<T, T, _>(bin, |x, y| x / y) }
 
-        match mode {
-            Wrap => self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y)),
-            Sat => self.update_bin::<T, T, _>(bin, |x, y| x.saturating(y)),
-            Wide => self.update_bin::<T, U, _>(
-                bin,
-                |x, y| U::from(x).wrapping(U::from(y)),
-            ),
-            Hand => {
-                let mut overflowed = false;
-
-                self.update_bin::<T, T, _>(bin, |x, y| {
-                    if let Some(s) = x.checked(y) {
-                        s
-                    } else {
-                        overflowed = true;
-                        <T as Primary>::zero()
-                    }
-                })?;
-
-                if overflowed {
-                    Err(ExecutionError::OperationOverflow)
-                } else {
-                    Ok(())
-                }
-            }
-        }
-    }
+    fn exec_mod<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
+        where
+            T: Primary + std::ops::Rem<Output=T>,
+    { self.update_bin::<T, T, _>(bin, |x, y| x % y) }
 
     pub fn execute(&mut self) -> Executed {
         use Op::*;
@@ -234,36 +249,108 @@ impl<'f> Executor<'f> {
             }
             Set(bin, ot) => {
                 match ot {
-                    U8 => self.set::<u8>(bin)?,
-                    I8 => self.set::<i8>(bin)?,
-                    U16 => self.set::<u16>(bin)?,
-                    I16 => self.set::<i16>(bin)?,
-                    U32 => self.set::<u32>(bin)?,
-                    I32 => self.set::<i32>(bin)?,
-                    U64 => self.set::<u64>(bin)?,
-                    I64 => self.set::<i64>(bin)?,
-                    Uw => self.set::<usize>(bin)?,
-                    Iw => self.set::<isize>(bin)?,
-                    F32 => self.set::<f32>(bin)?,
-                    F64 => self.set::<f64>(bin)?,
+                    U8 => self.exec_set::<u8>(bin)?,
+                    I8 => self.exec_set::<i8>(bin)?,
+                    U16 => self.exec_set::<u16>(bin)?,
+                    I16 => self.exec_set::<i16>(bin)?,
+                    U32 => self.exec_set::<u32>(bin)?,
+                    I32 => self.exec_set::<i32>(bin)?,
+                    U64 => self.exec_set::<u64>(bin)?,
+                    I64 => self.exec_set::<i64>(bin)?,
+                    Uw => self.exec_set::<usize>(bin)?,
+                    Iw => self.exec_set::<isize>(bin)?,
+                    F32 => self.exec_set::<f32>(bin)?,
+                    F64 => self.exec_set::<f64>(bin)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)
             }
             Add(bin, ot, mode) => {
                 match ot {
-                    U8 => self.add::<u8, u16>(bin, mode)?,
-                    I8 => self.add::<i8, i16>(bin, mode)?,
-                    U16 => self.add::<u16, u32>(bin, mode)?,
-                    I16 => self.add::<i16, i32>(bin, mode)?,
-                    U32 => self.add::<u32, u64>(bin, mode)?,
-                    I32 => self.add::<i32, i64>(bin, mode)?,
-                    U64 => self.add::<u64, u128>(bin, mode)?,
-                    I64 => self.add::<i64, i128>(bin, mode)?,
-                    Uw => self.add::<usize, usize>(bin, mode)?,
-                    Iw => self.add::<isize, isize>(bin, mode)?,
-                    F32 => self.add::<f32, f32>(bin, mode)?,
-                    F64 => self.add::<f64, f64>(bin, mode)?,
+                    U8 => self.exec_add::<u8, u16>(bin, mode)?,
+                    I8 => self.exec_add::<i8, i16>(bin, mode)?,
+                    U16 => self.exec_add::<u16, u32>(bin, mode)?,
+                    I16 => self.exec_add::<i16, i32>(bin, mode)?,
+                    U32 => self.exec_add::<u32, u64>(bin, mode)?,
+                    I32 => self.exec_add::<i32, i64>(bin, mode)?,
+                    U64 => self.exec_add::<u64, u128>(bin, mode)?,
+                    I64 => self.exec_add::<i64, i128>(bin, mode)?,
+                    Uw => self.exec_add::<usize, usize>(bin, mode)?,
+                    Iw => self.exec_add::<isize, isize>(bin, mode)?,
+                    F32 => self.exec_add::<f32, f32>(bin, mode)?,
+                    F64 => self.exec_add::<f64, f64>(bin, mode)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Sub(bin, ot, mode) => {
+                match ot {
+                    U8 => self.exec_sub::<u8, u16>(bin, mode)?,
+                    I8 => self.exec_sub::<i8, i16>(bin, mode)?,
+                    U16 => self.exec_sub::<u16, u32>(bin, mode)?,
+                    I16 => self.exec_sub::<i16, i32>(bin, mode)?,
+                    U32 => self.exec_sub::<u32, u64>(bin, mode)?,
+                    I32 => self.exec_sub::<i32, i64>(bin, mode)?,
+                    U64 => self.exec_sub::<u64, u128>(bin, mode)?,
+                    I64 => self.exec_sub::<i64, i128>(bin, mode)?,
+                    Uw => self.exec_sub::<usize, usize>(bin, mode)?,
+                    Iw => self.exec_sub::<isize, isize>(bin, mode)?,
+                    F32 => self.exec_sub::<f32, f32>(bin, mode)?,
+                    F64 => self.exec_sub::<f64, f64>(bin, mode)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Mul(bin, ot, mode) => {
+                match ot {
+                    U8 => self.exec_mul::<u8, u16>(bin, mode)?,
+                    I8 => self.exec_mul::<i8, i16>(bin, mode)?,
+                    U16 => self.exec_mul::<u16, u32>(bin, mode)?,
+                    I16 => self.exec_mul::<i16, i32>(bin, mode)?,
+                    U32 => self.exec_mul::<u32, u64>(bin, mode)?,
+                    I32 => self.exec_mul::<i32, i64>(bin, mode)?,
+                    U64 => self.exec_mul::<u64, u128>(bin, mode)?,
+                    I64 => self.exec_mul::<i64, i128>(bin, mode)?,
+                    Uw => self.exec_mul::<usize, usize>(bin, mode)?,
+                    Iw => self.exec_mul::<isize, isize>(bin, mode)?,
+                    F32 => self.exec_mul::<f32, f32>(bin, mode)?,
+                    F64 => self.exec_mul::<f64, f64>(bin, mode)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Div(bin, ot) => {
+                match ot {
+                    U8 => self.exec_div::<u8>(bin)?,
+                    I8 => self.exec_div::<i8>(bin)?,
+                    U16 => self.exec_div::<u16>(bin)?,
+                    I16 => self.exec_div::<i16>(bin)?,
+                    U32 => self.exec_div::<u32>(bin)?,
+                    I32 => self.exec_div::<i32>(bin)?,
+                    U64 => self.exec_div::<u64>(bin)?,
+                    I64 => self.exec_div::<i64>(bin)?,
+                    Uw => self.exec_div::<usize>(bin)?,
+                    Iw => self.exec_div::<isize>(bin)?,
+                    F32 => self.exec_div::<f32>(bin)?,
+                    F64 => self.exec_div::<f64>(bin)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Mod(bin, ot) => {
+                match ot {
+                    U8 => self.exec_mod::<u8>(bin)?,
+                    I8 => self.exec_mod::<i8>(bin)?,
+                    U16 => self.exec_mod::<u16>(bin)?,
+                    I16 => self.exec_mod::<i16>(bin)?,
+                    U32 => self.exec_mod::<u32>(bin)?,
+                    I32 => self.exec_mod::<i32>(bin)?,
+                    U64 => self.exec_mod::<u64>(bin)?,
+                    I64 => self.exec_mod::<i64>(bin)?,
+                    Uw => self.exec_mod::<usize>(bin)?,
+                    Iw => self.exec_mod::<isize>(bin)?,
+                    F32 => self.exec_mod::<f32>(bin)?,
+                    F64 => self.exec_mod::<f64>(bin)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)
