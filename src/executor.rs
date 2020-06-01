@@ -219,27 +219,17 @@ impl<'f> Executor<'f> {
         })
     }
 
-    fn update_un<T, U, F>(&mut self, un: UnOp, f: F) -> Result<(), ExecutionError>
-        where
-            T: Primary,
-            U: Primary,
-            F: FnOnce(T) -> U,
-    {
+    fn read_un_operand(&self, un: UnOp) -> Result<Operand, ExecutionError> {
         let left = if let Some(offset) = un.x_offset {
             self.make_offset(un.x, offset)?
         } else {
             un.x
         };
 
-        self.set_val(left, f(self.get_val(left)?))
+        Ok(left)
     }
 
-    fn update_bin<T, U, F>(&mut self, bin: BinOp, f: F) -> Result<(), ExecutionError>
-        where
-            T: Primary,
-            U: Primary,
-            F: FnOnce(T, T) -> U,
-    {
+    fn read_bin_operands(&self, bin: BinOp) -> Result<(Operand, Operand), ExecutionError> {
         let left = if let Some(offset) = bin.x_offset {
             self.make_offset(bin.x, offset)?
         } else {
@@ -252,6 +242,26 @@ impl<'f> Executor<'f> {
             bin.y
         };
 
+        Ok((left, right))
+    }
+
+    fn update_un<T, U, F>(&mut self, un: UnOp, f: F) -> Result<(), ExecutionError>
+        where
+            T: Primary,
+            U: Primary,
+            F: FnOnce(T) -> U,
+    {
+        let left = self.read_un_operand(un)?;
+        self.set_val(left, f(self.get_val(left)?))
+    }
+
+    fn update_bin<T, U, F>(&mut self, bin: BinOp, f: F) -> Result<(), ExecutionError>
+        where
+            T: Primary,
+            U: Primary,
+            F: FnOnce(T, T) -> U,
+    {
+        let (left, right) = self.read_bin_operands(bin)?;
         self.set_val(left, f(self.get_val(left)?, self.get_val(right)?))
     }
 
@@ -328,6 +338,54 @@ impl<'f> Executor<'f> {
     impl_exec_un!(exec_neg, Neg);
     impl_exec_un!(exec_inc, Inc);
     impl_exec_un!(exec_dec, Dec);
+
+    fn exec_ife<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
+        where
+            T: Primary + PartialEq,
+    {
+        let (left, right) = self.read_bin_operands(bin)?;
+        Ok(self.get_val::<T>(left)? == self.get_val::<T>(right)?)
+    }
+
+    fn exec_ifl<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
+        where
+            T: Primary + PartialOrd,
+    {
+        let (left, right) = self.read_bin_operands(bin)?;
+        Ok(self.get_val::<T>(left)? < self.get_val::<T>(right)?)
+    }
+
+    fn exec_ifg<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
+        where
+            T: Primary + PartialOrd,
+    {
+        let (left, right) = self.read_bin_operands(bin)?;
+        Ok(self.get_val::<T>(left)? > self.get_val::<T>(right)?)
+    }
+
+    fn exec_ine<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
+        where
+            T: Primary + PartialEq,
+    {
+        let (left, right) = self.read_bin_operands(bin)?;
+        Ok(self.get_val::<T>(left)? != self.get_val::<T>(right)?)
+    }
+
+    fn exec_inl<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
+        where
+            T: Primary + PartialOrd,
+    {
+        let (left, right) = self.read_bin_operands(bin)?;
+        Ok(self.get_val::<T>(left)? >= self.get_val::<T>(right)?)
+    }
+
+    fn exec_ing<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
+        where
+            T: Primary + PartialOrd,
+    {
+        let (left, right) = self.read_bin_operands(bin)?;
+        Ok(self.get_val::<T>(left)? <= self.get_val::<T>(right)?)
+    }
 
     pub fn execute(&mut self) -> Executed {
         use Op::*;
@@ -635,6 +693,144 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
+            Ife(bo, ot) => {
+                let res = match ot {
+                    U8 => self.exec_ife::<u8>(bo)?,
+                    I8 => self.exec_ife::<i8>(bo)?,
+                    U16 => self.exec_ife::<u16>(bo)?,
+                    I16 => self.exec_ife::<i16>(bo)?,
+                    U32 => self.exec_ife::<u32>(bo)?,
+                    I32 => self.exec_ife::<i32>(bo)?,
+                    U64 => self.exec_ife::<u64>(bo)?,
+                    I64 => self.exec_ife::<i64>(bo)?,
+                    Uw => self.exec_ife::<usize>(bo)?,
+                    Iw => self.exec_ife::<isize>(bo)?,
+                    F32 => self.exec_ife::<f32>(bo)?,
+                    F64 => self.exec_ife::<f64>(bo)?,
+                };
+
+                if res {
+                    Ok(ExecutionSuccess::Ok)
+                } else {
+                    self.pass_condition()?;
+                    return Ok(ExecutionSuccess::Ok);
+                }
+            }
+            Ifl(bo, ot) => {
+                let res = match ot {
+                    U8 => self.exec_ifl::<u8>(bo)?,
+                    I8 => self.exec_ifl::<i8>(bo)?,
+                    U16 => self.exec_ifl::<u16>(bo)?,
+                    I16 => self.exec_ifl::<i16>(bo)?,
+                    U32 => self.exec_ifl::<u32>(bo)?,
+                    I32 => self.exec_ifl::<i32>(bo)?,
+                    U64 => self.exec_ifl::<u64>(bo)?,
+                    I64 => self.exec_ifl::<i64>(bo)?,
+                    Uw => self.exec_ifl::<usize>(bo)?,
+                    Iw => self.exec_ifl::<isize>(bo)?,
+                    F32 => self.exec_ifl::<f32>(bo)?,
+                    F64 => self.exec_ifl::<f64>(bo)?,
+                };
+
+                if res {
+                    Ok(ExecutionSuccess::Ok)
+                } else {
+                    self.pass_condition()?;
+                    return Ok(ExecutionSuccess::Ok);
+                }
+            }
+            Ifg(bo, ot) => {
+                let res = match ot {
+                    U8 => self.exec_ifg::<u8>(bo)?,
+                    I8 => self.exec_ifg::<i8>(bo)?,
+                    U16 => self.exec_ifg::<u16>(bo)?,
+                    I16 => self.exec_ifg::<i16>(bo)?,
+                    U32 => self.exec_ifg::<u32>(bo)?,
+                    I32 => self.exec_ifg::<i32>(bo)?,
+                    U64 => self.exec_ifg::<u64>(bo)?,
+                    I64 => self.exec_ifg::<i64>(bo)?,
+                    Uw => self.exec_ifg::<usize>(bo)?,
+                    Iw => self.exec_ifg::<isize>(bo)?,
+                    F32 => self.exec_ifg::<f32>(bo)?,
+                    F64 => self.exec_ifg::<f64>(bo)?,
+                };
+
+                if res {
+                    Ok(ExecutionSuccess::Ok)
+                } else {
+                    self.pass_condition()?;
+                    return Ok(ExecutionSuccess::Ok);
+                }
+            }
+            Ine(bo, ot) => {
+                let res = match ot {
+                    U8 => self.exec_ine::<u8>(bo)?,
+                    I8 => self.exec_ine::<i8>(bo)?,
+                    U16 => self.exec_ine::<u16>(bo)?,
+                    I16 => self.exec_ine::<i16>(bo)?,
+                    U32 => self.exec_ine::<u32>(bo)?,
+                    I32 => self.exec_ine::<i32>(bo)?,
+                    U64 => self.exec_ine::<u64>(bo)?,
+                    I64 => self.exec_ine::<i64>(bo)?,
+                    Uw => self.exec_ine::<usize>(bo)?,
+                    Iw => self.exec_ine::<isize>(bo)?,
+                    F32 => self.exec_ine::<f32>(bo)?,
+                    F64 => self.exec_ine::<f64>(bo)?,
+                };
+
+                if res {
+                    Ok(ExecutionSuccess::Ok)
+                } else {
+                    self.pass_condition()?;
+                    return Ok(ExecutionSuccess::Ok);
+                }
+            }
+            Inl(bo, ot) => {
+                let res = match ot {
+                    U8 => self.exec_inl::<u8>(bo)?,
+                    I8 => self.exec_inl::<i8>(bo)?,
+                    U16 => self.exec_inl::<u16>(bo)?,
+                    I16 => self.exec_inl::<i16>(bo)?,
+                    U32 => self.exec_inl::<u32>(bo)?,
+                    I32 => self.exec_inl::<i32>(bo)?,
+                    U64 => self.exec_inl::<u64>(bo)?,
+                    I64 => self.exec_inl::<i64>(bo)?,
+                    Uw => self.exec_inl::<usize>(bo)?,
+                    Iw => self.exec_inl::<isize>(bo)?,
+                    F32 => self.exec_inl::<f32>(bo)?,
+                    F64 => self.exec_inl::<f64>(bo)?,
+                };
+
+                if res {
+                    Ok(ExecutionSuccess::Ok)
+                } else {
+                    self.pass_condition()?;
+                    return Ok(ExecutionSuccess::Ok);
+                }
+            }
+            Ing(bo, ot) => {
+                let res = match ot {
+                    U8 => self.exec_ing::<u8>(bo)?,
+                    I8 => self.exec_ing::<i8>(bo)?,
+                    U16 => self.exec_ing::<u16>(bo)?,
+                    I16 => self.exec_ing::<i16>(bo)?,
+                    U32 => self.exec_ing::<u32>(bo)?,
+                    I32 => self.exec_ing::<i32>(bo)?,
+                    U64 => self.exec_ing::<u64>(bo)?,
+                    I64 => self.exec_ing::<i64>(bo)?,
+                    Uw => self.exec_ing::<usize>(bo)?,
+                    Iw => self.exec_ing::<isize>(bo)?,
+                    F32 => self.exec_ing::<f32>(bo)?,
+                    F64 => self.exec_ing::<f64>(bo)?,
+                };
+
+                if res {
+                    Ok(ExecutionSuccess::Ok)
+                } else {
+                    self.pass_condition()?;
+                    return Ok(ExecutionSuccess::Ok);
+                }
+            }
             _ => Err(ExecutionError::NotImplemented),
         };
 
@@ -921,5 +1117,31 @@ mod tests {
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
         assert_eq!(exe.get_val::<u8>(Operand::Loc(0)), Ok(1));
         assert_eq!(exe.execute(), Executed::Err(ExecutionError::EndOfProgram));
+    }
+
+    #[test]
+    fn executor_ife() {
+        let functions = [
+            Function {
+                frame_size: 8,
+                program: &[
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(32)), OpType::U32),
+                    Op::Set(BinOp::new(Operand::Loc(4), Operand::Val(32)), OpType::U32),
+                    Op::Ife(BinOp::new(Operand::Loc(0), Operand::Loc(4)), OpType::U32),
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(1)), OpType::U32),
+                ],
+            },
+        ];
+
+        let mut exe = Executor::new(&functions);
+        exe.call(0, 0).unwrap();
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(32));
+        assert_eq!(exe.get_val::<u32>(Operand::Loc(4)), Ok(32));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(1));
     }
 }
