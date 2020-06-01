@@ -47,6 +47,8 @@ pub struct Executor<'f> {
     memory: Memory,
     program_counter: usize,
     call_stack: Vec<FunctionCall<'f>>,
+    prepared_call: bool,
+    parameter_ptr: usize,
 }
 
 macro_rules! impl_exec_bin {
@@ -125,35 +127,62 @@ impl<'f> Executor<'f> {
             memory: Memory::new(),
             program_counter: 0,
             call_stack: Vec::new(),
+            prepared_call: false,
+            parameter_ptr: 0,
         }
     }
 
-    pub fn call(&mut self, function_id: usize, ret_address: usize) -> Result<(), ExecutionError> {
+    pub fn app(&mut self, function_id: usize) -> Result<(), ExecutionError> {
         let f = self.functions.get(function_id).ok_or(ExecutionError::UnknownFunction)?;
         self.call_stack.push(FunctionCall {
             function: f,
             base_address: self.memory.stack.len(),
-            ret_address,
-            ret_program_counter: self.program_counter.wrapping_add(1),
+            ret_address: 0,
+            ret_program_counter: 0,
         });
 
-        self.program_counter = 0;
+        self.prepared_call = true;
         self.memory.stack.expand(f.frame_size)?;
 
         Ok(())
     }
 
-    fn ret(&mut self) -> Result<(), ExecutionError> {
-        let top_fn = self.call_stack.pop().ok_or(ExecutionError::EndOfProgram)?;
+    pub fn cfn(&mut self, ret_address: usize) -> Result<(), ExecutionError> {
+        let current_fn = self.call_stack
+            .last_mut()
+            .ok_or(ExecutionError::EndOfProgram)?;
 
-        self.program_counter = top_fn.ret_program_counter;
-        self.memory.stack.narrow(top_fn.function.frame_size)?;
+        current_fn.ret_address = ret_address;
+        current_fn.ret_program_counter = self.program_counter.wrapping_add(1);
+        self.prepared_call = false;
+        self.program_counter = 0;
+        self.parameter_ptr = 0;
+
+        Ok(())
+    }
+
+    pub fn call(&mut self, function_id: usize, ret_address: usize) -> Result<(), ExecutionError> {
+        self.app(function_id)?;
+        self.cfn(ret_address)
+    }
+
+    fn ret(&mut self) -> Result<(), ExecutionError> {
+        let current_fn = self.call_stack.pop().ok_or(ExecutionError::EndOfProgram)?;
+
+        self.program_counter = current_fn.ret_program_counter;
+        self.memory.stack.narrow(current_fn.function.frame_size)?;
 
         Ok(())
     }
 
     fn current_call(&self) -> Result<&FunctionCall, ExecutionError> {
-        self.call_stack.last().ok_or(ExecutionError::EndOfProgram)
+        let call = if self.prepared_call {
+            self.call_stack.get(self.call_stack.len().wrapping_sub(2))
+        } else {
+            self.call_stack.last()
+        };
+
+        call.ok_or(ExecutionError::EndOfProgram)
     }
 
     fn current_op(&self) -> Result<&Op, ExecutionError> {
@@ -243,6 +272,14 @@ impl<'f> Executor<'f> {
         };
 
         Ok((left, right))
+    }
+
+    fn get_un<T>(&mut self, un: UnOp) -> Result<T, ExecutionError>
+        where
+            T: Primary,
+    {
+        let left = self.read_un_operand(un)?;
+        self.get_val(left)
     }
 
     fn update_un<T, U, F>(&mut self, un: UnOp, f: F) -> Result<(), ExecutionError>
@@ -433,6 +470,27 @@ impl<'f> Executor<'f> {
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? ^ self.get_val::<T>(right)? == T::zero())
+    }
+
+    fn exec_par<T>(&mut self, un: UnOp, mode: ParameterMode) -> Result<(), ExecutionError>
+        where
+            T: Primary,
+    {
+        let frame_size = self.current_call()?.function.frame_size;
+        self.parameter_ptr = self.parameter_ptr.wrapping_add(frame_size);
+
+        match mode {
+            ParameterMode::Set => {
+                let val = self.get_un(un)?;
+                self.set_val::<T>(Operand::Loc(self.parameter_ptr), val)?;
+            }
+            ParameterMode::Emp => {}
+            ParameterMode::Msz => {
+                self.set_val::<T>(Operand::Loc(self.parameter_ptr), T::zero())?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn execute(&mut self) -> Executed {
@@ -1017,7 +1075,36 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            _ => Err(ExecutionError::NotImplemented),
+            App(x) => {
+                self.app(self.get_val(x)?)?;
+                Ok(ExecutionSuccess::Ok)
+            }
+            Par(un, ot, mode) => {
+                match ot {
+                    U8 => self.exec_par::<u8>(un, mode)?,
+                    I8 => self.exec_par::<i8>(un, mode)?,
+                    U16 => self.exec_par::<u16>(un, mode)?,
+                    I16 => self.exec_par::<i16>(un, mode)?,
+                    U32 => self.exec_par::<u32>(un, mode)?,
+                    I32 => self.exec_par::<i32>(un, mode)?,
+                    U64 => self.exec_par::<u64>(un, mode)?,
+                    I64 => self.exec_par::<i64>(un, mode)?,
+                    Uw => self.exec_par::<usize>(un, mode)?,
+                    Iw => self.exec_par::<isize>(un, mode)?,
+                    F32 => self.exec_par::<f32>(un, mode)?,
+                    F64 => self.exec_par::<f64>(un, mode)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Cfn(x) => {
+                self.cfn(self.get_val(x)?)?;
+                return Ok(ExecutionSuccess::Ok);
+            }
+            Ret => {
+                self.ret()?;
+                return Ok(ExecutionSuccess::Ok);
+            }
         };
 
         if res.is_ok() {
@@ -1380,5 +1467,60 @@ mod tests {
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
         assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(1));
+    }
+
+    #[test]
+    fn executor_call_fn() {
+        let functions = [
+            Function {
+                frame_size: 4,
+                program: &[
+                    Op::App(Operand::Val(1)),
+                    Op::Par(
+                        UnOp::new(Operand::Val(2)),
+                        OpType::I32,
+                        ParameterMode::default(),
+                    ),
+                    Op::Cfn(Operand::Val(0)),
+                    Op::Ret,
+                ],
+            },
+            Function {
+                frame_size: 8,
+                program: &[
+                    Op::Set(BinOp::new(Operand::Loc(4), Operand::Val(3)), OpType::I32),
+                    Op::Add(
+                        BinOp::new(Operand::Ret(0), Operand::Loc(0)),
+                        OpType::I32,
+                        ArithmeticMode::default(),
+                    ),
+                    Op::Add(
+                        BinOp::new(Operand::Ret(0), Operand::Loc(4)),
+                        OpType::I32,
+                        ArithmeticMode::default(),
+                    ),
+                    Op::Ret,
+                ],
+            },
+        ];
+
+        let mut exe = Executor::new(&functions);
+        exe.call(0, 0).unwrap();
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.call_stack.len(), 2);
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.call_stack.len(), 1);
+
+        assert_eq!(exe.get_val::<i32>(Operand::Loc(0)), Ok(5));
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.call_stack.len(), 0);
     }
 }
