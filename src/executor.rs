@@ -147,7 +147,7 @@ impl<'f> Executor<'f> {
         Ok(())
     }
 
-    fn cfn(&mut self, ret_address: usize) -> Result<(), ExecutionError> {
+    fn clf(&mut self, ret_address: usize) -> Result<(), ExecutionError> {
         let current_fn = self.call_stack
             .last_mut()
             .ok_or(ExecutionError::EndOfProgram)?;
@@ -163,7 +163,7 @@ impl<'f> Executor<'f> {
 
     pub fn call(&mut self, function_id: usize, ret_address: usize) -> Result<(), ExecutionError> {
         self.app(function_id)?;
-        self.cfn(ret_address)
+        self.clf(ret_address)
     }
 
     fn ret(&mut self) -> Result<(), ExecutionError> {
@@ -1128,8 +1128,8 @@ impl<'f> Executor<'f> {
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Cfn(x) => {
-                self.cfn(self.get_val(x)?)?;
+            Clf(x) => {
+                self.clf(self.get_val(x)?)?;
                 return Ok(ExecutionSuccess::Ok);
             }
             Ret => {
@@ -1512,7 +1512,7 @@ mod tests {
                         OpType::I32,
                         ParameterMode::default(),
                     ),
-                    Op::Cfn(Operand::Val(0)),
+                    Op::Clf(Operand::Val(0)),
                     Op::Ret,
                 ],
             },
@@ -1582,8 +1582,8 @@ mod tests {
                         OpType::U32,
                         ParameterMode::default(),
                     ),
-                    // cfn result
-                    Op::Cfn(Operand::Val(0)),
+                    // clf result
+                    Op::Clf(Operand::Val(0)),
                     // end
                     Op::End(Operand::Val(0)),
                 ],

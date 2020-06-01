@@ -104,7 +104,7 @@ pub const APP: u8 = 0x31;
 pub const PAR: u8 = 0x32;
 
 /// Call function.
-pub const CFN: u8 = 0x33;
+pub const CLF: u8 = 0x33;
 
 /// Return from function.
 pub const RET: u8 = 0x34;

@@ -7,7 +7,7 @@ pub enum UndefinedOperation {
     ParameterMode,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Operand {
     /// Local variable.
     ///
@@ -56,13 +56,15 @@ impl Operand {
     }
 
     pub fn get(self) -> Option<usize> {
+        use Operand::*;
+
         match self {
-            Operand::Loc(v) => Some(v),
-            Operand::Ind(v) => Some(v),
-            Operand::Ret(v) => Some(v),
-            Operand::Val(v) => Some(v),
-            Operand::Ref(v) => Some(v),
-            Operand::Emp => None,
+            Loc(v) => Some(v),
+            Ind(v) => Some(v),
+            Ret(v) => Some(v),
+            Val(v) => Some(v),
+            Ref(v) => Some(v),
+            Emp => None,
         }
     }
 
@@ -70,13 +72,15 @@ impl Operand {
         where
             F: FnOnce(usize) -> usize,
     {
+        use Operand::*;
+
         match self {
-            Operand::Loc(v) => Operand::Loc(f(v)),
-            Operand::Ind(v) => Operand::Ind(f(v)),
-            Operand::Ret(v) => Operand::Ret(f(v)),
-            Operand::Val(v) => Operand::Val(f(v)),
-            Operand::Ref(v) => Operand::Ref(f(v)),
-            Operand::Emp => Operand::Emp,
+            Loc(v) => Operand::Loc(f(v)),
+            Ind(v) => Operand::Ind(f(v)),
+            Ret(v) => Operand::Ret(f(v)),
+            Val(v) => Operand::Val(f(v)),
+            Ref(v) => Operand::Ref(f(v)),
+            Emp => Operand::Emp,
         }
     }
 }
@@ -85,7 +89,22 @@ impl From<u8> for Operand {
     fn from(byte: u8) -> Self { Operand::Loc(byte as usize) }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+impl std::fmt::Debug for Operand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Operand::*;
+
+        match self {
+            Loc(v) => write!(f, "loc({:#02X?})", v),
+            Ind(v) => write!(f, "ind({:#02X?})", v),
+            Ret(v) => write!(f, "ret({:#02X?})", v),
+            Val(v) => write!(f, "val({:#02X?})", v),
+            Ref(v) => write!(f, "ref({:#02X?})", v),
+            Emp => write!(f, "emp"),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct UnOp {
     pub x: Operand,
     pub x_offset: Option<Operand>,
@@ -100,7 +119,19 @@ impl UnOp {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+impl std::fmt::Debug for UnOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.x)?;
+
+        if let Some(offset) = &self.x_offset {
+            write!(f, ":{:?}", offset)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct BinOp {
     pub x: Operand,
     pub x_offset: Option<Operand>,
@@ -129,7 +160,25 @@ impl BinOp {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+impl std::fmt::Debug for BinOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.x)?;
+
+        if let Some(offset) = &self.x_offset {
+            write!(f, ":{:?}", offset)?;
+        }
+
+        write!(f, " {:?}", self.y)?;
+
+        if let Some(offset) = &self.y_offset {
+            write!(f, ":{:?}", offset)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Op {
     Nop,
     End(Operand),
@@ -166,7 +215,7 @@ pub enum Op {
     Inx(BinOp, OpType),
     App(Operand),
     Par(UnOp, OpType, ParameterMode),
-    Cfn(Operand),
+    Clf(Operand),
     Ret,
 }
 
@@ -185,7 +234,53 @@ impl Op {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+impl std::fmt::Debug for Op {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Op::*;
+
+        match self {
+            Nop => write!(f, "nop"),
+            End(x) => write!(f, "end {:?}", x),
+            Slp(x) => write!(f, "slp {:?}", x),
+            Set(b, t) => write!(f, "set {:?} {:?}", t, b),
+            Add(b, t, m) => write!(f, "add {:?} {:?} {:?}", m, t, b),
+            Sub(b, t, m) => write!(f, "sub {:?} {:?} {:?}", m, t, b),
+            Mul(b, t, m) => write!(f, "mul {:?} {:?} {:?}", m, t, b),
+            Div(b, t) => write!(f, "div {:?} {:?}", t, b),
+            Mod(b, t) => write!(f, "mod {:?} {:?}", t, b),
+            Shl(b, t, m) => write!(f, "shl {:?} {:?} {:?}", m, t, b),
+            Shr(b, t, m) => write!(f, "shr {:?} {:?} {:?}", m, t, b),
+            And(b, t) => write!(f, "and {:?} {:?}", t, b),
+            Or(b, t) => write!(f, "or  {:?} {:?}", t, b),
+            Xor(b, t) => write!(f, "xor {:?} {:?}", t, b),
+            Not(u, t) => write!(f, "not {:?} {:?}", t, u),
+            Neg(u, t, m) => write!(f, "neg {:?} {:?} {:?}", m, t, u),
+            Inc(u, t, m) => write!(f, "inc {:?} {:?} {:?}", m, t, u),
+            Dec(u, t, m) => write!(f, "dec {:?} {:?} {:?}", m, t, u),
+            Go(x) => write!(f, "go  {:?}", x),
+            Ift(u, t) => write!(f, "ift {:?} {:?}", t, u),
+            Iff(u, t) => write!(f, "iff {:?} {:?}", t, u),
+            Ife(b, t) => write!(f, "ife {:?} {:?}", t, b),
+            Ifl(b, t) => write!(f, "ifl {:?} {:?}", t, b),
+            Ifg(b, t) => write!(f, "ifg {:?} {:?}", t, b),
+            Ine(b, t) => write!(f, "ine {:?} {:?}", t, b),
+            Inl(b, t) => write!(f, "inl {:?} {:?}", t, b),
+            Ing(b, t) => write!(f, "ing {:?} {:?}", t, b),
+            Ifa(b, t) => write!(f, "ifa {:?} {:?}", t, b),
+            Ifo(b, t) => write!(f, "ifo {:?} {:?}", t, b),
+            Ifx(b, t) => write!(f, "ifx {:?} {:?}", t, b),
+            Ina(b, t) => write!(f, "ina {:?} {:?}", t, b),
+            Ino(b, t) => write!(f, "ino {:?} {:?}", t, b),
+            Inx(b, t) => write!(f, "inx {:?} {:?}", t, b),
+            App(x) => write!(f, "app {:?}", x),
+            Par(u, t, m) => write!(f, "par {:?} {:?} {:?}", m, t, u),
+            Clf(x) => write!(f, "clf {:?}", x),
+            Ret => write!(f, "ret"),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum OpType {
     U8,
     I8,
@@ -223,6 +318,27 @@ impl OpType {
     }
 }
 
+impl std::fmt::Debug for OpType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use OpType::*;
+
+        match self {
+            U8 => write!(f, "u8 "),
+            I8 => write!(f, "i8 "),
+            U16 => write!(f, "u16"),
+            I16 => write!(f, "i16"),
+            U32 => write!(f, "u32"),
+            I32 => write!(f, "i32"),
+            U64 => write!(f, "u64"),
+            I64 => write!(f, "i64"),
+            Uw => write!(f, "uw "),
+            Iw => write!(f, "iw "),
+            F32 => write!(f, "f32"),
+            F64 => write!(f, "f64"),
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct Mode(pub u8);
 
@@ -236,7 +352,7 @@ impl Mode {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ArithmeticMode {
     /// Wrapping mode.
     Wrap,
@@ -269,7 +385,20 @@ impl Default for ArithmeticMode {
     fn default() -> Self { ArithmeticMode::Wrap }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+impl std::fmt::Debug for ArithmeticMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use ArithmeticMode::*;
+
+        match self {
+            Wrap => write!(f, "wrap"),
+            Sat => write!(f, "sat "),
+            Wide => write!(f, "wide"),
+            Hand => write!(f, "hand"),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ParameterMode {
     /// Set mode.
     Set,
@@ -296,6 +425,18 @@ impl ParameterMode {
 
 impl Default for ParameterMode {
     fn default() -> Self { ParameterMode::Set }
+}
+
+impl std::fmt::Debug for ParameterMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use ParameterMode::*;
+
+        match self {
+            Set => write!(f, "set"),
+            Emp => write!(f, "emp"),
+            Msz => write!(f, "msz"),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

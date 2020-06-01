@@ -33,7 +33,6 @@ mod limits {
 
 use limits::*;
 
-#[derive(Debug)]
 pub struct MemoryPage<L> {
     page: Vec<u8>,
     limit: std::marker::PhantomData<L>,
@@ -102,6 +101,41 @@ impl<L> MemoryPage<L>
 
             Ok(())
         }
+    }
+}
+
+impl<L> std::fmt::Debug for MemoryPage<L>
+    where
+        L: Limit,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use std::fmt::Write;
+
+        if self.page.is_empty() {
+            return Ok(());
+        }
+
+        let mut counter = 0;
+        let mut line = 0;
+
+        f.write_char('\n')?;
+
+        for &byte in self.page.iter() {
+            if counter == 0 {
+                write!(f, "{:02X?}:  ", line)?;
+            }
+
+            write!(f, "{:02X?} ", byte)?;
+            counter += 1;
+            line += 1;
+
+            if counter > 8 {
+                f.write_char('\n')?;
+                counter = 0;
+            }
+        }
+
+        Ok(())
     }
 }
 
