@@ -120,12 +120,30 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
             let (bin_op, op_type, _) = decode(bytes)?;
             Ing(bin_op, op_type)
         }
-        IFA => Ifa(decode(bytes)?, decode(bytes)?),
-        IFO => Ifo(decode(bytes)?, decode(bytes)?),
-        IFX => Ifx(decode(bytes)?, decode(bytes)?),
-        INA => Ina(decode(bytes)?, decode(bytes)?),
-        INO => Ino(decode(bytes)?, decode(bytes)?),
-        INX => Inx(decode(bytes)?, decode(bytes)?),
+        IFA => {
+            let (bin_op, op_type, _) = decode(bytes)?;
+            Ifa(bin_op, op_type)
+        }
+        IFO => {
+            let (bin_op, op_type, _) = decode(bytes)?;
+            Ifo(bin_op, op_type)
+        }
+        IFX => {
+            let (bin_op, op_type, _) = decode(bytes)?;
+            Ifx(bin_op, op_type)
+        }
+        INA => {
+            let (bin_op, op_type, _) = decode(bytes)?;
+            Ina(bin_op, op_type)
+        }
+        INO => {
+            let (bin_op, op_type, _) = decode(bytes)?;
+            Ino(bin_op, op_type)
+        },
+        INX => {
+            let (bin_op, op_type, _) = decode(bytes)?;
+            Inx(bin_op, op_type)
+        }
         APP => App(decode(bytes)?),
         PAR => {
             let (op_type, mode, var) = decode(bytes)?;
@@ -494,11 +512,11 @@ mod tests {
     #[test]
     fn decode_ifa() {
         let code = [
-            0x2B_u8, 12, 0b1100_0000, 8,
-            // ifa loc(12) ref(8)
+            0x2B_u8, 0b0000_0100, 12, 0b1100_0000, 8,
+            // ifa u32 loc(12) ref(8)
         ];
 
-        let expected = Op::Ifa(Operand::Loc(12), Operand::Ref(8));
+        let expected = Op::Ifa(BinOp::new(Operand::Loc(12), Operand::Ref(8)), OpType::U32);
 
         let mut it = code.iter().cloned();
         let actual = decode_op(&mut it).unwrap();
