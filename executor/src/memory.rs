@@ -1,4 +1,4 @@
-use crate::Primary;
+use super::primary::Primary;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum MemoryError {

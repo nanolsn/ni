@@ -1,6 +1,7 @@
+use common::*;
 use super::{
-    *,
     memory::*,
+    primary::*,
 };
 
 #[derive(Debug)]

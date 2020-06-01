@@ -1,4 +1,5 @@
-use super::*;
+use common::*;
+use super::decode::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum DecodeError {
@@ -99,7 +100,7 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
             let un_op = decode_with(bytes, var)?;
 
             Ift(un_op, op_type)
-        },
+        }
         IFF => {
             let (op_type, _, var) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
@@ -149,7 +150,7 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
         INO => {
             let (bin_op, op_type, _) = decode(bytes)?;
             Ino(bin_op, op_type)
-        },
+        }
         INX => {
             let (bin_op, op_type, _) = decode(bytes)?;
             Inx(bin_op, op_type)
