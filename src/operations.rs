@@ -170,6 +170,21 @@ pub enum Op {
     Ret,
 }
 
+impl Op {
+    pub fn is_conditional(&self) -> bool {
+        use Op::*;
+
+        match self {
+            Ift(_) | Iff(_)
+            | Ife(_, _) | Ifl(_, _) | Ifg(_, _)
+            | Ine(_, _) | Inl(_, _) | Ing(_, _)
+            | Ifa(_, _) | Ifo(_, _) | Ifx(_, _)
+            | Ina(_, _) | Ino(_, _) | Inx(_, _) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum OpType {
     U8,

@@ -162,6 +162,18 @@ impl<'f> Executor<'f> {
             .ok_or(ExecutionError::EndOfProgram)
     }
 
+    fn pass_condition(&mut self) -> Result<(), ExecutionError> {
+        loop {
+            self.program_counter += 1;
+            let op = self.current_op()?;
+
+            if !op.is_conditional() {
+                self.program_counter += 1;
+                break Ok(());
+            }
+        }
+    }
+
     fn get_val<T>(&self, operand: Operand) -> Result<T, ExecutionError>
         where
             T: Primary,
@@ -607,6 +619,22 @@ impl<'f> Executor<'f> {
                 self.program_counter = self.get_val(x)?;
                 return Ok(ExecutionSuccess::Ok);
             }
+            Ift(x) => {
+                if self.get_val::<u8>(x)? != 0 {
+                    Ok(ExecutionSuccess::Ok)
+                } else {
+                    self.pass_condition()?;
+                    return Ok(ExecutionSuccess::Ok);
+                }
+            }
+            Iff(x) => {
+                if self.get_val::<u8>(x)? == 0 {
+                    Ok(ExecutionSuccess::Ok)
+                } else {
+                    self.pass_condition()?;
+                    return Ok(ExecutionSuccess::Ok);
+                }
+            }
             _ => Err(ExecutionError::NotImplemented),
         };
 
@@ -847,5 +875,51 @@ mod tests {
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
         assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(3));
+    }
+
+    #[test]
+    fn executor_ift() {
+        let functions = [
+            Function {
+                frame_size: 1,
+                program: &[
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(1)), OpType::U8),
+                    Op::Ift(Operand::Loc(0)),
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::U8),
+                ],
+            },
+        ];
+
+        let mut exe = Executor::new(&functions);
+        exe.call(0, 0).unwrap();
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u8>(Operand::Loc(0)), Ok(1));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u8>(Operand::Loc(0)), Ok(2));
+    }
+
+    #[test]
+    fn executor_iff() {
+        let functions = [
+            Function {
+                frame_size: 1,
+                program: &[
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(1)), OpType::U8),
+                    Op::Iff(Operand::Loc(0)),
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::U8),
+                ],
+            },
+        ];
+
+        let mut exe = Executor::new(&functions);
+        exe.call(0, 0).unwrap();
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u8>(Operand::Loc(0)), Ok(1));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u8>(Operand::Loc(0)), Ok(1));
+        assert_eq!(exe.execute(), Executed::Err(ExecutionError::EndOfProgram));
     }
 }
