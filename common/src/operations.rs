@@ -232,6 +232,51 @@ impl Op {
             _ => false,
         }
     }
+
+    pub fn op_code(&self) -> u8 {
+        use Op::*;
+        use super::op_codes::*;
+
+        match self {
+            Nop => NOP,
+            End(_) => END,
+            Slp(_) => SLP,
+            Set(_, _) => SET,
+            Add(_, _, _) => ADD,
+            Sub(_, _, _) => SUB,
+            Mul(_, _, _) => MUL,
+            Div(_, _) => DIV,
+            Mod(_, _) => MOD,
+            Shl(_, _, _) => SHL,
+            Shr(_, _, _) => SHR,
+            And(_, _) => AND,
+            Or(_, _) => OR,
+            Xor(_, _) => XOR,
+            Not(_, _) => NOT,
+            Neg(_, _, _) => NEG,
+            Inc(_, _, _) => INC,
+            Dec(_, _, _) => DEC,
+            Go(_) => GO,
+            Ift(_, _) => IFT,
+            Iff(_, _) => IFF,
+            Ife(_, _) => IFE,
+            Ifl(_, _) => IFL,
+            Ifg(_, _) => IFG,
+            Ine(_, _) => INE,
+            Inl(_, _) => INL,
+            Ing(_, _) => ING,
+            Ifa(_, _) => IFA,
+            Ifo(_, _) => IFO,
+            Ifx(_, _) => IFX,
+            Ina(_, _) => INA,
+            Ino(_, _) => INO,
+            Inx(_, _) => INX,
+            App(_) => APP,
+            Par(_, _, _) => PAR,
+            Clf(_) => CLF,
+            Ret => RET,
+        }
+    }
 }
 
 impl std::fmt::Debug for Op {
@@ -316,6 +361,25 @@ impl OpType {
             _ => return Err(UndefinedOperation::OpType),
         })
     }
+
+    pub fn as_byte(&self) -> u8 {
+        use OpType::*;
+
+        match self {
+            U8 => 0,
+            I8 => 1,
+            U16 => 2,
+            I16 => 3,
+            U32 => 4,
+            I32 => 5,
+            U64 => 6,
+            I64 => 7,
+            Uw => 8,
+            Iw => 9,
+            F32 => 11,
+            F64 => 13,
+        }
+    }
 }
 
 impl std::fmt::Debug for OpType {
@@ -379,6 +443,17 @@ impl ArithmeticMode {
             _ => return Err(UndefinedOperation::ArithmeticMode),
         })
     }
+
+    pub fn as_byte(&self) -> u8 {
+        use ArithmeticMode::*;
+
+        match self {
+            Wrap => 0,
+            Sat => 1,
+            Wide => 2,
+            Hand => 3,
+        }
+    }
 }
 
 impl Default for ArithmeticMode {
@@ -420,6 +495,16 @@ impl ParameterMode {
             2 => Msz,
             _ => return Err(UndefinedOperation::ParameterMode),
         })
+    }
+
+    pub fn as_byte(&self) -> u8 {
+        use ParameterMode::*;
+
+        match self {
+            Set => 0,
+            Emp => 1,
+            Msz => 2,
+        }
     }
 }
 
