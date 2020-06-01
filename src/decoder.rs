@@ -94,8 +94,18 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
             Dec(un_op, op_type, mode.into_arithmetic()?)
         }
         GO => Go(decode(bytes)?),
-        IFT => Ift(decode(bytes)?),
-        IFF => Iff(decode(bytes)?),
+        IFT => {
+            let (op_type, _, var) = decode(bytes)?;
+            let un_op = decode_with(bytes, var)?;
+
+            Ift(un_op, op_type)
+        },
+        IFF => {
+            let (op_type, _, var) = decode(bytes)?;
+            let un_op = decode_with(bytes, var)?;
+
+            Iff(un_op, op_type)
+        }
         IFE => {
             let (bin_op, op_type, _) = decode(bytes)?;
             Ife(bin_op, op_type)

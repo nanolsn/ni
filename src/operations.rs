@@ -150,8 +150,8 @@ pub enum Op {
     Inc(UnOp, OpType, ArithmeticMode),
     Dec(UnOp, OpType, ArithmeticMode),
     Go(Operand),
-    Ift(Operand),
-    Iff(Operand),
+    Ift(UnOp, OpType),
+    Iff(UnOp, OpType),
     Ife(BinOp, OpType),
     Ifl(BinOp, OpType),
     Ifg(BinOp, OpType),
@@ -175,7 +175,7 @@ impl Op {
         use Op::*;
 
         match self {
-            Ift(_) | Iff(_)
+            Ift(_, _) | Iff(_, _)
             | Ife(_, _) | Ifl(_, _) | Ifg(_, _)
             | Ine(_, _) | Inl(_, _) | Ing(_, _)
             | Ifa(_, _) | Ifo(_, _) | Ifx(_, _)

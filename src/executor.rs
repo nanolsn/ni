@@ -132,7 +132,7 @@ impl<'f> Executor<'f> {
         }
     }
 
-    pub fn app(&mut self, function_id: usize) -> Result<(), ExecutionError> {
+    fn app(&mut self, function_id: usize) -> Result<(), ExecutionError> {
         let f = self.functions.get(function_id).ok_or(ExecutionError::UnknownFunction)?;
         self.call_stack.push(FunctionCall {
             function: f,
@@ -147,7 +147,7 @@ impl<'f> Executor<'f> {
         Ok(())
     }
 
-    pub fn cfn(&mut self, ret_address: usize) -> Result<(), ExecutionError> {
+    fn cfn(&mut self, ret_address: usize) -> Result<(), ExecutionError> {
         let current_fn = self.call_stack
             .last_mut()
             .ok_or(ExecutionError::EndOfProgram)?;
@@ -477,16 +477,17 @@ impl<'f> Executor<'f> {
             T: Primary,
     {
         let frame_size = self.current_call()?.function.frame_size;
-        self.parameter_ptr = self.parameter_ptr.wrapping_add(frame_size);
+        let parameter_loc = self.parameter_ptr.wrapping_add(frame_size);
+        self.parameter_ptr = self.parameter_ptr.wrapping_add(T::SIZE);
 
         match mode {
             ParameterMode::Set => {
                 let val = self.get_un(un)?;
-                self.set_val::<T>(Operand::Loc(self.parameter_ptr), val)?;
+                self.set_val::<T>(Operand::Loc(parameter_loc), val)?;
             }
             ParameterMode::Emp => {}
             ParameterMode::Msz => {
-                self.set_val::<T>(Operand::Loc(self.parameter_ptr), T::zero())?;
+                self.set_val::<T>(Operand::Loc(parameter_loc), T::zero())?;
             }
         }
 
@@ -783,16 +784,46 @@ impl<'f> Executor<'f> {
                 self.program_counter = self.get_val(x)?;
                 return Ok(ExecutionSuccess::Ok);
             }
-            Ift(x) => {
-                if self.get_val::<u8>(x)? != 0 {
+            Ift(un, ot) => {
+                let res = match ot {
+                    U8 => self.get_un::<u8>(un)? != 0,
+                    I8 => self.get_un::<i8>(un)? != 0,
+                    U16 => self.get_un::<u16>(un)? != 0,
+                    I16 => self.get_un::<i16>(un)? != 0,
+                    U32 => self.get_un::<u32>(un)? != 0,
+                    I32 => self.get_un::<i32>(un)? != 0,
+                    U64 => self.get_un::<u64>(un)? != 0,
+                    I64 => self.get_un::<i64>(un)? != 0,
+                    Uw => self.get_un::<usize>(un)? != 0,
+                    Iw => self.get_un::<isize>(un)? != 0,
+                    F32 => self.get_un::<f32>(un)? != 0.0,
+                    F64 => self.get_un::<f64>(un)? != 0.0,
+                };
+
+                if res {
                     Ok(ExecutionSuccess::Ok)
                 } else {
                     self.pass_condition()?;
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Iff(x) => {
-                if self.get_val::<u8>(x)? == 0 {
+            Iff(un, ot) => {
+                let res = match ot {
+                    U8 => self.get_un::<u8>(un)? == 0,
+                    I8 => self.get_un::<i8>(un)? == 0,
+                    U16 => self.get_un::<u16>(un)? == 0,
+                    I16 => self.get_un::<i16>(un)? == 0,
+                    U32 => self.get_un::<u32>(un)? == 0,
+                    I32 => self.get_un::<i32>(un)? == 0,
+                    U64 => self.get_un::<u64>(un)? == 0,
+                    I64 => self.get_un::<i64>(un)? == 0,
+                    Uw => self.get_un::<usize>(un)? == 0,
+                    Iw => self.get_un::<isize>(un)? == 0,
+                    F32 => self.get_un::<f32>(un)? == 0.0,
+                    F64 => self.get_un::<f64>(un)? == 0.0,
+                };
+
+                if res {
                     Ok(ExecutionSuccess::Ok)
                 } else {
                     self.pass_condition()?;
@@ -1353,7 +1384,7 @@ mod tests {
                 frame_size: 1,
                 program: &[
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(1)), OpType::U8),
-                    Op::Ift(Operand::Loc(0)),
+                    Op::Ift(UnOp::new(Operand::Loc(0)), OpType::U8),
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::U8),
                 ],
             },
@@ -1376,7 +1407,7 @@ mod tests {
                 frame_size: 1,
                 program: &[
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(1)), OpType::U8),
-                    Op::Iff(Operand::Loc(0)),
+                    Op::Iff(UnOp::new(Operand::Loc(0)), OpType::U8),
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::U8),
                 ],
             },
@@ -1521,6 +1552,79 @@ mod tests {
         assert_eq!(exe.get_val::<i32>(Operand::Loc(0)), Ok(5));
 
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
-        assert_eq!(exe.call_stack.len(), 0);
+        assert!(exe.call_stack.is_empty());
+    }
+
+    #[test]
+    fn executor_gcd() {
+        let functions = [
+            Function {
+                frame_size: 12,
+                program: &[
+                    // u32 result
+                    // u32 x
+                    // u32 y
+                    // set x 234
+                    Op::Set(BinOp::new(Operand::Loc(4), Operand::Val(234)), OpType::U32),
+                    // set y 533
+                    Op::Set(BinOp::new(Operand::Loc(8), Operand::Val(533)), OpType::U32),
+                    // app gcd
+                    Op::App(Operand::Val(1)),
+                    // par x
+                    Op::Par(
+                        UnOp::new(Operand::Loc(4)),
+                        OpType::U32,
+                        ParameterMode::default(),
+                    ),
+                    // par y
+                    Op::Par(
+                        UnOp::new(Operand::Loc(8)),
+                        OpType::U32,
+                        ParameterMode::default(),
+                    ),
+                    // cfn result
+                    Op::Cfn(Operand::Val(0)),
+                    // end
+                    Op::End(Operand::Val(0)),
+                ],
+            },
+            Function {
+                // fn gcd
+                frame_size: 12,
+                program: &[
+                    // u32 a
+                    // u32 b
+                    // u32 c
+                    // loop:
+                    // set c a
+                    Op::Set(BinOp::new(Operand::Loc(8), Operand::Loc(0)), OpType::U32),
+                    // mod c b
+                    Op::Mod(BinOp::new(Operand::Loc(8), Operand::Loc(4)), OpType::U32),
+                    // set a b
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Loc(4)), OpType::U32),
+                    // set b c
+                    Op::Set(BinOp::new(Operand::Loc(4), Operand::Loc(8)), OpType::U32),
+                    // ift b
+                    Op::Ift(UnOp::new(Operand::Loc(4)), OpType::U32),
+                    // go loop
+                    Op::Go(Operand::Val(0)),
+                    // set ^ a
+                    Op::Set(BinOp::new(Operand::Ret(0), Operand::Loc(0)), OpType::U32),
+                    // ret
+                    Op::Ret,
+                ],
+            },
+        ];
+
+        let mut exe = Executor::new(&functions);
+        exe.call(0, 0).unwrap();
+
+        let mut executed = Executed::Ok(ExecutionSuccess::Ok);
+        while let Executed::Ok(ExecutionSuccess::Ok) = executed {
+            executed = exe.execute();
+        };
+
+        assert_eq!(executed, Executed::Ok(ExecutionSuccess::End(0)));
+        assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(13));
     }
 }

@@ -4,7 +4,7 @@ use crate::Primary;
 pub enum MemoryError {
     PageOverflow(&'static str),
     RageUnderflow(&'static str),
-    SegmentationFault,
+    SegmentationFault(usize, usize),
     WrongRange,
 }
 
@@ -75,12 +75,14 @@ impl<L> MemoryPage<L>
 
     pub fn as_slice(&self) -> &[u8] { self.page.as_slice() }
 
-    pub fn get(&self, ptr: usize, size: usize) -> Option<&[u8]> {
+    pub fn get(&self, ptr: usize, size: usize) -> Result<&[u8], MemoryError> {
         self.page.get(ptr..ptr.wrapping_add(size))
+            .ok_or(MemoryError::SegmentationFault(ptr, size))
     }
 
-    pub fn get_mut(&mut self, ptr: usize, size: usize) -> Option<&mut [u8]> {
+    pub fn get_mut(&mut self, ptr: usize, size: usize) -> Result<&mut [u8], MemoryError> {
         self.page.get_mut(ptr..ptr.wrapping_add(size))
+            .ok_or(MemoryError::SegmentationFault(ptr, size))
     }
 
     pub fn memmove(&mut self, dest: usize, src: usize, size: usize) -> Result<(), MemoryError> {
@@ -89,8 +91,10 @@ impl<L> MemoryPage<L>
 
         if src > src_end {
             Err(MemoryError::WrongRange)
-        } else if src_end.max(dest_end) > self.len() {
-            Err(MemoryError::SegmentationFault)
+        } else if src_end > self.len() {
+            Err(MemoryError::SegmentationFault(src, size))
+        } else if dest_end > self.len() {
+            Err(MemoryError::SegmentationFault(dest, size))
         } else {
             self.page
                 .as_mut_slice()
@@ -123,21 +127,17 @@ impl Memory {
     {
         use std::borrow::Borrow;
 
-        self.slice_mut(ptr, T::SIZE)
-            .ok_or(MemoryError::SegmentationFault)
-            .map(|s| {
-                s.copy_from_slice(value.to_bytes().borrow());
-                ()
-            })
+        let dest = self.slice_mut(ptr, T::SIZE)?;
+        dest.copy_from_slice(value.to_bytes().borrow());
+        Ok(())
     }
 
     pub fn get<T>(&self, ptr: usize) -> Result<T, MemoryError>
         where
             T: Primary,
     {
-        self.slice(ptr, T::SIZE)
-            .ok_or(MemoryError::SegmentationFault)
-            .map(|sl| T::from_slice(sl))
+        let src = self.slice(ptr, T::SIZE)?;
+        Ok(T::from_slice(src))
     }
 
     pub fn update<T, F>(&mut self, ptr: usize, f: F) -> Result<(), MemoryError>
@@ -165,19 +165,18 @@ impl Memory {
             // Otherwise it requires to copy from one page to another.
             let (dest_slice, src_slice) = if dest_on_stack {
                 let src = src - Memory::HEAP_BASE;
-                (self.stack.get_mut(dest, size), self.heap.get(src, size))
+                (self.stack.get_mut(dest, size)?, self.heap.get(src, size)?)
             } else {
                 let dest = dest - Memory::HEAP_BASE;
-                (self.heap.get_mut(dest, size), self.stack.get(src, size))
+                (self.heap.get_mut(dest, size)?, self.stack.get(src, size)?)
             };
 
-            dest_slice
-                .and_then(|d| src_slice.map(|s| d.copy_from_slice(s)))
-                .ok_or(MemoryError::SegmentationFault)
+            dest_slice.copy_from_slice(src_slice);
+            Ok(())
         };
     }
 
-    fn slice(&self, ptr: usize, size: usize) -> Option<&[u8]> {
+    fn slice(&self, ptr: usize, size: usize) -> Result<&[u8], MemoryError> {
         if ptr < Memory::HEAP_BASE {
             self.stack.get(ptr, size)
         } else {
@@ -186,7 +185,7 @@ impl Memory {
         }
     }
 
-    fn slice_mut(&mut self, ptr: usize, size: usize) -> Option<&mut [u8]> {
+    fn slice_mut(&mut self, ptr: usize, size: usize) -> Result<&mut [u8], MemoryError> {
         if ptr < Memory::HEAP_BASE {
             self.stack.get_mut(ptr, size)
         } else {
@@ -306,8 +305,8 @@ mod tests {
         mem.copy(0, 1, 0).unwrap();
         mem.copy(1, 1, 0).unwrap();
 
-        assert_eq!(mem.copy(1, 0, 1), Err(MemoryError::SegmentationFault));
-        assert_eq!(mem.copy(0, 0, 2), Err(MemoryError::SegmentationFault));
+        assert_eq!(mem.copy(1, 0, 1), Err(MemoryError::SegmentationFault(1, 1)));
+        assert_eq!(mem.copy(0, 0, 2), Err(MemoryError::SegmentationFault(0, 2)));
     }
 
     #[test]
