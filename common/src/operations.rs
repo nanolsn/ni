@@ -484,8 +484,8 @@ pub enum ParameterMode {
     /// Empty mode.
     Emp,
 
-    /// Memory set zeroes mode.
-    Msz,
+    /// Set zeroes mode.
+    Zer,
 }
 
 impl ParameterMode {
@@ -495,7 +495,7 @@ impl ParameterMode {
         Ok(match value {
             0 => Set,
             1 => Emp,
-            2 => Msz,
+            2 => Zer,
             _ => return Err(UndefinedOperation::ParameterMode),
         })
     }
@@ -506,7 +506,7 @@ impl ParameterMode {
         match self {
             Set => 0,
             Emp => 1,
-            Msz => 2,
+            Zer => 2,
         }
     }
 }
@@ -522,7 +522,7 @@ impl std::fmt::Debug for ParameterMode {
         match self {
             Set => write!(f, "set"),
             Emp => write!(f, "emp"),
-            Msz => write!(f, "msz"),
+            Zer => write!(f, "zer"),
         }
     }
 }

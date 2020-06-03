@@ -512,9 +512,7 @@ impl<'f> Executor<'f> {
                 self.set_val::<T>(Operand::Loc(parameter_loc), val)?;
             }
             ParameterMode::Emp => {}
-            ParameterMode::Msz => {
-                self.set_val::<T>(Operand::Loc(parameter_loc), T::zero())?;
-            }
+            ParameterMode::Zer => self.set_val::<T>(Operand::Loc(parameter_loc), T::zero())?,
         }
 
         Ok(())
