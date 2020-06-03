@@ -122,20 +122,20 @@ macro_rules! impl_exec_un {
 }
 
 macro_rules! impl_cnv {
-    ($t:ty, $obj:ident, $uid:ident, $un:ident) => {
+    ($t:ty, $obj:ident, $uid:ident, $x:ident, $y:ident) => {
         match $uid {
-            U8 => $obj.exec_cnv::<$t, u8>($un)?,
-            I8 => $obj.exec_cnv::<$t, i8>($un)?,
-            U16 => $obj.exec_cnv::<$t, u16>($un)?,
-            I16 => $obj.exec_cnv::<$t, i16>($un)?,
-            U32 => $obj.exec_cnv::<$t, u32>($un)?,
-            I32 => $obj.exec_cnv::<$t, i32>($un)?,
-            U64 => $obj.exec_cnv::<$t, u64>($un)?,
-            I64 => $obj.exec_cnv::<$t, i64>($un)?,
-            Uw => $obj.exec_cnv::<$t, usize>($un)?,
-            Iw => $obj.exec_cnv::<$t, isize>($un)?,
-            F32 => $obj.exec_cnv::<$t, f32>($un)?,
-            F64 => $obj.exec_cnv::<$t, f64>($un)?,
+            U8 => $obj.exec_cnv::<$t, u8>($x, $y)?,
+            I8 => $obj.exec_cnv::<$t, i8>($x, $y)?,
+            U16 => $obj.exec_cnv::<$t, u16>($x, $y)?,
+            I16 => $obj.exec_cnv::<$t, i16>($x, $y)?,
+            U32 => $obj.exec_cnv::<$t, u32>($x, $y)?,
+            I32 => $obj.exec_cnv::<$t, i32>($x, $y)?,
+            U64 => $obj.exec_cnv::<$t, u64>($x, $y)?,
+            I64 => $obj.exec_cnv::<$t, i64>($x, $y)?,
+            Uw => $obj.exec_cnv::<$t, usize>($x, $y)?,
+            Iw => $obj.exec_cnv::<$t, isize>($x, $y)?,
+            F32 => $obj.exec_cnv::<$t, f32>($x, $y)?,
+            F64 => $obj.exec_cnv::<$t, f64>($x, $y)?,
         }
     };
 }
@@ -355,11 +355,11 @@ impl<'f> Executor<'f> {
             T: Primary,
     { self.update_bin::<T, T, _>(bin, |_, y| y) }
 
-    fn exec_cnv<T, U>(&mut self, left: Operand) -> Result<(), ExecutionError>
+    fn exec_cnv<T, U>(&mut self, left: Operand, right: Operand) -> Result<(), ExecutionError>
         where
             T: Primary,
             U: Primary + Convert<T>,
-    { self.set_val(left, U::convert(self.get_val(left)?)) }
+    { self.set_val(left, U::convert(self.get_val(right)?)) }
 
     impl_exec_bin!(exec_add, Add);
     impl_exec_bin!(exec_sub, Sub);
@@ -554,20 +554,20 @@ impl<'f> Executor<'f> {
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Cnv(x, t, u) => {
+            Cnv(x, y, t, u) => {
                 match t {
-                    U8 => impl_cnv!(u8, self, u, x),
-                    I8 => impl_cnv!(i8, self, u, x),
-                    U16 => impl_cnv!(u16, self, u, x),
-                    I16 => impl_cnv!(i16, self, u, x),
-                    U32 => impl_cnv!(u32, self, u, x),
-                    I32 => impl_cnv!(i32, self, u, x),
-                    U64 => impl_cnv!(u64, self, u, x),
-                    I64 => impl_cnv!(i64, self, u, x),
-                    Uw => impl_cnv!(usize, self, u, x),
-                    Iw => impl_cnv!(isize, self, u, x),
-                    F32 => impl_cnv!(f32, self, u, x),
-                    F64 => impl_cnv!(f64, self, u, x),
+                    U8 => impl_cnv!(u8, self, u, x, y),
+                    I8 => impl_cnv!(i8, self, u, x, y),
+                    U16 => impl_cnv!(u16, self, u, x, y),
+                    I16 => impl_cnv!(i16, self, u, x, y),
+                    U32 => impl_cnv!(u32, self, u, x, y),
+                    I32 => impl_cnv!(i32, self, u, x, y),
+                    U64 => impl_cnv!(u64, self, u, x, y),
+                    I64 => impl_cnv!(i64, self, u, x, y),
+                    Uw => impl_cnv!(usize, self, u, x, y),
+                    Iw => impl_cnv!(isize, self, u, x, y),
+                    F32 => impl_cnv!(f32, self, u, x, y),
+                    F64 => impl_cnv!(f64, self, u, x, y),
                 }
 
                 Ok(ExecutionSuccess::Ok)
@@ -1288,7 +1288,7 @@ mod tests {
                 frame_size: 8,
                 program: &[
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::I64),
-                    Op::Cnv(Operand::Loc(0), OpType::I64, OpType::U8),
+                    Op::Cnv(Operand::Loc(0), Operand::Loc(0), OpType::I64, OpType::U8),
                 ],
             },
         ];
