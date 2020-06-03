@@ -121,6 +121,25 @@ macro_rules! impl_exec_un {
     };
 }
 
+macro_rules! impl_cnv {
+    ($t:ty, $obj:ident, $uid:ident, $un:ident) => {
+        match $uid {
+            U8 => $obj.exec_cnv::<$t, u8>($un)?,
+            I8 => $obj.exec_cnv::<$t, i8>($un)?,
+            U16 => $obj.exec_cnv::<$t, u16>($un)?,
+            I16 => $obj.exec_cnv::<$t, i16>($un)?,
+            U32 => $obj.exec_cnv::<$t, u32>($un)?,
+            I32 => $obj.exec_cnv::<$t, i32>($un)?,
+            U64 => $obj.exec_cnv::<$t, u64>($un)?,
+            I64 => $obj.exec_cnv::<$t, i64>($un)?,
+            Uw => $obj.exec_cnv::<$t, usize>($un)?,
+            Iw => $obj.exec_cnv::<$t, isize>($un)?,
+            F32 => $obj.exec_cnv::<$t, f32>($un)?,
+            F64 => $obj.exec_cnv::<$t, f64>($un)?,
+        }
+    };
+}
+
 impl<'f> Executor<'f> {
     pub fn new(functions: &'f [Function]) -> Self {
         Self {
@@ -336,6 +355,12 @@ impl<'f> Executor<'f> {
             T: Primary,
     { self.update_bin::<T, T, _>(bin, |_, y| y) }
 
+    fn exec_cnv<T, U>(&mut self, un: UnOp) -> Result<(), ExecutionError>
+        where
+            T: Primary,
+            U: Primary + Convert<T>,
+    { self.update_un::<T, U, _>(un, |x| U::convert(x)) }
+
     impl_exec_bin!(exec_add, Add);
     impl_exec_bin!(exec_sub, Sub);
     impl_exec_bin!(exec_mul, Mul);
@@ -525,6 +550,24 @@ impl<'f> Executor<'f> {
                     Iw => self.exec_set::<isize>(bin)?,
                     F32 => self.exec_set::<f32>(bin)?,
                     F64 => self.exec_set::<f64>(bin)?,
+                }
+
+                Ok(ExecutionSuccess::Ok)
+            }
+            Cnv(un, t, u) => {
+                match t {
+                    U8 => impl_cnv!(u8, self, u, un),
+                    I8 => impl_cnv!(i8, self, u, un),
+                    U16 => impl_cnv!(u16, self, u, un),
+                    I16 => impl_cnv!(i16, self, u, un),
+                    U32 => impl_cnv!(u32, self, u, un),
+                    I32 => impl_cnv!(i32, self, u, un),
+                    U64 => impl_cnv!(u64, self, u, un),
+                    I64 => impl_cnv!(i64, self, u, un),
+                    Uw => impl_cnv!(usize, self, u, un),
+                    Iw => impl_cnv!(isize, self, u, un),
+                    F32 => impl_cnv!(f32, self, u, un),
+                    F64 => impl_cnv!(f64, self, u, un),
                 }
 
                 Ok(ExecutionSuccess::Ok)
@@ -1236,6 +1279,26 @@ mod tests {
 
         assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
         assert_eq!(exe.get_val::<f32>(Operand::Loc(0)), Ok(0.123));
+    }
+
+    #[test]
+    fn executor_cnv() {
+        let functions = [
+            Function {
+                frame_size: 8,
+                program: &[
+                    Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::I64),
+                    Op::Cnv(UnOp::new(Operand::Loc(0)), OpType::I64, OpType::U8),
+                ],
+            },
+        ];
+
+        let mut exe = Executor::new(&functions);
+        exe.call(0, 0).unwrap();
+
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+        assert_eq!(exe.get_val::<u8>(Operand::Loc(0)), Ok(2));
     }
 
     #[test]

@@ -306,3 +306,61 @@ impl<T> Dec for T
     fn saturating(self) -> Self { Sub::saturating(self, T::one()) }
     fn checked(self) -> Option<Self> { Sub::checked(self, T::one()) }
 }
+
+pub trait Convert<T>: Primary {
+    fn convert(v: T) -> Self;
+}
+
+macro_rules! impl_convert {
+    ($u:ty; $($t:ty),+) => {
+        $(
+        impl Convert<$t> for $u {
+            fn convert(v: $t) -> Self {
+                v as Self
+            }
+        }
+        )+
+    }
+}
+
+macro_rules! impl_convert_f {
+    ($($u:ty),+) => {
+        $(
+        impl Convert<f32> for $u {
+            fn convert(v: f32) -> Self {
+                if v.is_nan() || v.is_infinite() {
+                    <$u as Primary>::zero()
+                } else {
+                    v as Self
+                }
+            }
+        }
+
+        impl Convert<f64> for $u {
+            fn convert(v: f64) -> Self {
+                if v.is_nan() || v.is_infinite() {
+                    <$u as Primary>::zero()
+                } else {
+                    v as Self
+                }
+            }
+        }
+        )+
+    }
+}
+
+impl_convert_f!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize, f32, f64);
+impl_convert!(u8; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(i8; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(u16; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(i16; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(u32; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(i32; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(u64; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(i64; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(u128; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(i128; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(usize; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(isize; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(f32; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+impl_convert!(f64; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
