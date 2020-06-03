@@ -153,6 +153,54 @@ impl Mul for f64 {
     fn checked(self, r: Self) -> Option<Self> { Some(self * r) }
 }
 
+pub trait Div: Primary {
+    fn wrapping(self, r: Self) -> Self;
+}
+
+macro_rules! impl_div {
+    ($($t:ty),+) => {
+        $(
+        impl Div for $t {
+            fn wrapping(self, r: Self) -> Self { self.wrapping_div(r) }
+        }
+        )+
+    }
+}
+
+impl_div!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+
+impl Div for f32 {
+    fn wrapping(self, r: Self) -> Self { self / r }
+}
+
+impl Div for f64 {
+    fn wrapping(self, r: Self) -> Self { self / r }
+}
+
+pub trait Rem: Primary {
+    fn wrapping(self, r: Self) -> Self;
+}
+
+macro_rules! impl_rem {
+    ($($t:ty),+) => {
+        $(
+        impl Rem for $t {
+            fn wrapping(self, r: Self) -> Self { self.wrapping_rem(r) }
+        }
+        )+
+    }
+}
+
+impl_rem!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+
+impl Rem for f32 {
+    fn wrapping(self, r: Self) -> Self { self % r }
+}
+
+impl Rem for f64 {
+    fn wrapping(self, r: Self) -> Self { self % r }
+}
+
 pub trait Shl: Primary {
     fn wrapping(self, r: Self) -> Self;
     fn saturating(self, r: Self) -> Self;

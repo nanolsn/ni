@@ -342,13 +342,13 @@ impl<'f> Executor<'f> {
 
     fn exec_div<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
         where
-            T: Primary + PartialEq + std::ops::Div<Output=T>,
-    { self.update_bin_division::<T, _>(bin, |x, y| x / y) }
+            T: Div + PartialEq,
+    { self.update_bin_division::<T, _>(bin, |x, y| x.wrapping(y)) }
 
     fn exec_mod<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
         where
-            T: Primary + PartialEq + std::ops::Rem<Output=T>,
-    { self.update_bin_division::<T, _>(bin, |x, y| x % y) }
+            T: Rem + PartialEq,
+    { self.update_bin_division::<T, _>(bin, |x, y| x.wrapping(y)) }
 
     impl_exec_bin!(exec_shl, Shl);
     impl_exec_bin!(exec_shr, Shr);
