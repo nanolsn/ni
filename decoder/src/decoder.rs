@@ -32,8 +32,7 @@ pub fn decode_op<I>(bytes: &mut I) -> Result<Op, DecodeError>
         }
         CNV => {
             let (t, u) = decode(bytes)?;
-            let x = decode(bytes)?;
-            Cnv(UnOp::new(x), t, u)
+            Cnv(decode(bytes)?, t, u)
         }
         ADD => {
             let (bin_op, op_type, mode) = decode(bytes)?;
@@ -533,7 +532,7 @@ mod tests {
             CNV, 0b0010_0000, 12,
         ];
 
-        let expected = Op::Cnv(UnOp::new(Operand::Loc(12)), OpType::U8, OpType::U16);
+        let expected = Op::Cnv(Operand::Loc(12), OpType::U8, OpType::U16);
 
         let mut it = code.iter().cloned();
         let actual = decode_op(&mut it).unwrap();

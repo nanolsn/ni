@@ -355,11 +355,11 @@ impl<'f> Executor<'f> {
             T: Primary,
     { self.update_bin::<T, T, _>(bin, |_, y| y) }
 
-    fn exec_cnv<T, U>(&mut self, un: UnOp) -> Result<(), ExecutionError>
+    fn exec_cnv<T, U>(&mut self, left: Operand) -> Result<(), ExecutionError>
         where
             T: Primary,
             U: Primary + Convert<T>,
-    { self.update_un::<T, U, _>(un, |x| U::convert(x)) }
+    { self.set_val(left, U::convert(self.get_val(left)?)) }
 
     impl_exec_bin!(exec_add, Add);
     impl_exec_bin!(exec_sub, Sub);
@@ -554,20 +554,20 @@ impl<'f> Executor<'f> {
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Cnv(un, t, u) => {
+            Cnv(x, t, u) => {
                 match t {
-                    U8 => impl_cnv!(u8, self, u, un),
-                    I8 => impl_cnv!(i8, self, u, un),
-                    U16 => impl_cnv!(u16, self, u, un),
-                    I16 => impl_cnv!(i16, self, u, un),
-                    U32 => impl_cnv!(u32, self, u, un),
-                    I32 => impl_cnv!(i32, self, u, un),
-                    U64 => impl_cnv!(u64, self, u, un),
-                    I64 => impl_cnv!(i64, self, u, un),
-                    Uw => impl_cnv!(usize, self, u, un),
-                    Iw => impl_cnv!(isize, self, u, un),
-                    F32 => impl_cnv!(f32, self, u, un),
-                    F64 => impl_cnv!(f64, self, u, un),
+                    U8 => impl_cnv!(u8, self, u, x),
+                    I8 => impl_cnv!(i8, self, u, x),
+                    U16 => impl_cnv!(u16, self, u, x),
+                    I16 => impl_cnv!(i16, self, u, x),
+                    U32 => impl_cnv!(u32, self, u, x),
+                    I32 => impl_cnv!(i32, self, u, x),
+                    U64 => impl_cnv!(u64, self, u, x),
+                    I64 => impl_cnv!(i64, self, u, x),
+                    Uw => impl_cnv!(usize, self, u, x),
+                    Iw => impl_cnv!(isize, self, u, x),
+                    F32 => impl_cnv!(f32, self, u, x),
+                    F64 => impl_cnv!(f64, self, u, x),
                 }
 
                 Ok(ExecutionSuccess::Ok)
@@ -1288,7 +1288,7 @@ mod tests {
                 frame_size: 8,
                 program: &[
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::I64),
-                    Op::Cnv(UnOp::new(Operand::Loc(0)), OpType::I64, OpType::U8),
+                    Op::Cnv(Operand::Loc(0), OpType::I64, OpType::U8),
                 ],
             },
         ];
