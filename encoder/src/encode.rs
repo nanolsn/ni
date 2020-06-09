@@ -1,7 +1,7 @@
 pub trait Encode {
     type Err;
 
-    fn encode<I>(&self) -> Result<I, Self::Err>
+    fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
         where
-            I: Iterator<Item=u8>;
+            W: std::io::Write;
 }
