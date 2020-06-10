@@ -25,7 +25,14 @@ fn encode_op<W>(op: &Op, buf: &mut W) -> Result<(), EncodeError>
 
     match op {
         Nop => NOP.encode(buf)?,
-        End(x) => {}
+        End(x) => {
+            END.encode(buf)?;
+            x.encode(buf)?;
+        }
+        Slp(x) => {
+            SLP.encode(buf)?;
+            x.encode(buf)?;
+        }
         _ => {}
     }
 
@@ -48,33 +55,67 @@ impl Encode for Operand {
         where
             W: Write,
     {
-        const SIZE_BITS: u8 = 0b0000_1111;
-        const KIND_BITS: u8 = 0b0111_0000;
         const LONG_OPERAND_BIT: u8 = 0b1000_0000;
         const SHORT_MAX_VALUE: usize = 0b0111_1111;
 
         if let Some(val) = self.get() {
-            if val <= SHORT_MAX_VALUE {
-                // TODO: Encode to short.
+            let bytes = val.to_le_bytes();
+
+            if val <= SHORT_MAX_VALUE && matches!(self, Operand::Loc(_)) {
+                return buf.write(&bytes[..1]).expected(1);
             }
 
-            let bytes: [u8; 8] = val.to_le_bytes();
-            let size = bytes
+            let n_bytes = bytes
                 .iter()
                 .rev()
-                .take_while(|&b| *b == 0)
+                .skip_while(|&b| *b == 0)
                 .count();
 
             let kind = self.as_byte();
-            let operand_meta = (kind << 4) | (size as u8 - 1);
+            let mut operand_meta = kind << 4;
+            operand_meta |= n_bytes as u8 - 1;
+            operand_meta |= LONG_OPERAND_BIT;
 
             buf.write(&[operand_meta]).expected::<EncodeError>(1)?;
-            buf.write(&bytes[..size]).expected(size)
+            buf.write(&bytes[..n_bytes]).expected(n_bytes)
         } else {
             let kind = self.as_byte();
             let operand_meta = kind << 4;
 
             buf.write(&[operand_meta]).expected(1)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use op_codes::*;
+
+    #[test]
+    fn encode_short() {
+        let op = Op::End(Operand::Loc(12));
+
+        let mut buf = vec![];
+        encode_op(&op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[END, 12]);
+    }
+
+    #[test]
+    fn encode_long() {
+        let op = Op::End(Operand::Ind(12));
+
+        let mut buf = vec![];
+        encode_op(&op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[END, 0b1001_0000, 12]);
+
+        let op = Op::End(Operand::Val(256));
+
+        let mut buf = vec![];
+        encode_op(&op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[END, 0b1011_0001, 0, 1]);
     }
 }

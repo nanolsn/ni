@@ -319,19 +319,19 @@ impl Decode<()> for Operand {
         const KIND_BITS: u8 = 0b0111_0000;
         const LONG_OPERAND_BIT: u8 = 0b1000_0000;
 
-        let byte = bytes.read_u8()?;
+        let operand_meta = bytes.read_u8()?;
 
-        if byte & LONG_OPERAND_BIT == 0 {
-            return Ok((byte & !LONG_OPERAND_BIT).into());
+        if operand_meta & LONG_OPERAND_BIT == 0 {
+            return Ok((operand_meta & !LONG_OPERAND_BIT).into());
         }
 
-        let size = (byte & SIZE_BITS) as usize + 1;
+        let n_bytes = (operand_meta & SIZE_BITS) as usize + 1;
         let mut buf = [0; std::mem::size_of::<usize>()];
 
-        bytes.read(&mut buf[..size]).expected::<DecodeError>(size)?;
+        bytes.read(&mut buf[..n_bytes]).expected::<DecodeError>(n_bytes)?;
 
         let value = usize::from_le_bytes(buf);
-        let kind = (byte & KIND_BITS) >> 4;
+        let kind = (operand_meta & KIND_BITS) >> 4;
 
         Ok(Operand::new(value, kind)?)
     }
