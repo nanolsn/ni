@@ -19,18 +19,8 @@ impl From<io::Error> for DecodeError {
     fn from(e: io::Error) -> Self { DecodeError::ReadError(e) }
 }
 
-trait Expected {
-    fn expected(self, count: usize) -> Result<(), DecodeError>;
-}
-
-impl Expected for Result<usize, io::Error> {
-    fn expected(self, bytes_read: usize) -> Result<(), DecodeError> {
-        match self {
-            Ok(r) if r == bytes_read => Ok(()),
-            Ok(_) => Err(DecodeError::UnexpectedEnd),
-            Err(e) => Err(e.into()),
-        }
-    }
+impl ExpectedError for DecodeError {
+    const ERROR: Self = DecodeError::UnexpectedEnd;
 }
 
 trait ReadU8 {
@@ -43,7 +33,7 @@ impl<R> ReadU8 for R
 {
     fn read_u8(&mut self) -> Result<u8, DecodeError> {
         let mut buf = [0];
-        self.read(&mut buf).expected(1)?;
+        self.read(&mut buf).expected::<DecodeError>(1)?;
         Ok(buf[0])
     }
 }
@@ -338,7 +328,7 @@ impl Decode<()> for Operand {
         let size = (byte & SIZE_BITS) as usize + 1;
         let mut buf = [0; std::mem::size_of::<usize>()];
 
-        bytes.read(&mut buf[..size]).expected(size)?;
+        bytes.read(&mut buf[..size]).expected::<DecodeError>(size)?;
 
         let value = usize::from_le_bytes(buf);
         let kind = (byte & KIND_BITS) >> 4;
