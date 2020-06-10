@@ -38,7 +38,7 @@ impl<R> ReadU8 for R
     }
 }
 
-pub fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
+fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
     where
         R: Read,
 {

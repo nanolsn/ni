@@ -55,6 +55,19 @@ impl Operand {
         })
     }
 
+    pub fn as_byte(&self) -> u8 {
+        use Operand::*;
+
+        match self {
+            Loc(_) => 0,
+            Ind(_) => 1,
+            Ret(_) => 2,
+            Val(_) => 3,
+            Ref(_) => 4,
+            Emp => 5,
+        }
+    }
+
     pub fn get(self) -> Option<usize> {
         use Operand::*;
 
