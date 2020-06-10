@@ -24,85 +24,164 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
     use Op::*;
 
     match op {
-        Nop => NOP.encode(buf)?,
+        Nop => NOP.encode(buf),
         End(x) => {
             END.encode(buf)?;
-            x.encode(buf)?;
+            x.encode(buf)
         }
         Slp(x) => {
             SLP.encode(buf)?;
-            x.encode(buf)?;
+            x.encode(buf)
         }
         Set(b, t) => {
             SET.encode(buf)?;
-            (b, t).encode(buf)?;
+            (b, t).encode(buf)
         }
         Cnv(x, y, t, u) => {
             CNV.encode(buf)?;
             (t, u).encode(buf)?;
             x.encode(buf)?;
-            y.encode(buf)?;
+            y.encode(buf)
         }
         Add(b, t, m) => {
             ADD.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)?;
+            (b, t, m.as_mode()).encode(buf)
         }
         Sub(b, t, m) => {
             SUB.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)?;
+            (b, t, m.as_mode()).encode(buf)
         }
         Mul(b, t, m) => {
             MUL.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)?;
+            (b, t, m.as_mode()).encode(buf)
         }
         Div(b, t) => {
             DIV.encode(buf)?;
-            (b, t).encode(buf)?;
+            (b, t).encode(buf)
         }
         Mod(b, t) => {
             MOD.encode(buf)?;
-            (b, t).encode(buf)?;
+            (b, t).encode(buf)
         }
         Shl(b, t, m) => {
             SHL.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)?;
+            (b, t, m.as_mode()).encode(buf)
         }
         Shr(b, t, m) => {
             SHR.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)?;
+            (b, t, m.as_mode()).encode(buf)
         }
         And(b, t) => {
             AND.encode(buf)?;
-            (b, t).encode(buf)?;
+            (b, t).encode(buf)
         }
         Or(b, t) => {
             OR.encode(buf)?;
-            (b, t).encode(buf)?;
+            (b, t).encode(buf)
         }
         Xor(b, t) => {
             XOR.encode(buf)?;
-            (b, t).encode(buf)?;
+            (b, t).encode(buf)
         }
         Not(u, t) => {
             NOT.encode(buf)?;
-            (u, t).encode(buf)?;
+            (u, t).encode(buf)
         }
         Neg(u, t, m) => {
             NEG.encode(buf)?;
-            (u, t, m.as_mode()).encode(buf)?;
+            (u, t, m.as_mode()).encode(buf)
         }
         Inc(u, t, m) => {
             INC.encode(buf)?;
-            (u, t, m.as_mode()).encode(buf)?;
+            (u, t, m.as_mode()).encode(buf)
         }
         Dec(u, t, m) => {
             DEC.encode(buf)?;
-            (u, t, m.as_mode()).encode(buf)?;
+            (u, t, m.as_mode()).encode(buf)
         }
-        _ => {}
+        Go(x) => {
+            GO.encode(buf)?;
+            x.encode(buf)
+        }
+        Ift(u, t) => {
+            IFT.encode(buf)?;
+            (u, t).encode(buf)
+        }
+        Iff(u, t) => {
+            IFF.encode(buf)?;
+            (u, t).encode(buf)
+        }
+        Ife(b, t) => {
+            IFE.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Ifl(b, t) => {
+            IFL.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Ifg(b, t) => {
+            IFG.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Ine(b, t) => {
+            INE.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Inl(b, t) => {
+            INL.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Ing(b, t) => {
+            ING.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Ifa(b, t) => {
+            IFA.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Ifo(b, t) => {
+            IFO.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Ifx(b, t) => {
+            IFX.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Ina(b, t) => {
+            INA.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Ino(b, t) => {
+            INO.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        Inx(b, t) => {
+            INX.encode(buf)?;
+            (b, t).encode(buf)
+        }
+        App(x) => {
+            APP.encode(buf)?;
+            x.encode(buf)
+        }
+        Par(u, t, m) => {
+            PAR.encode(buf)?;
+            (u, t, m.as_mode()).encode(buf)
+        }
+        Clf(x) => {
+            CLF.encode(buf)?;
+            x.encode(buf)
+        }
+        Ret => RET.encode(buf),
     }
+}
 
-    Ok(())
+impl Encode for Op {
+    type Err = EncodeError;
+
+    fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
+        where
+            W: Write,
+    { encode_op(*self, buf) }
 }
 
 impl Encode for u8 {
@@ -321,5 +400,93 @@ mod tests {
         encode_op(op, &mut buf).unwrap();
 
         assert_eq!(buf, &[END, 0b0101_0000]);
+    }
+
+    #[test]
+    fn encode_first_offset() {
+        let op = Op::Inc(
+            UnOp::new(Operand::Ind(16)).with_x_offset(Operand::Ref(1)),
+            OpType::I16,
+            ArithmeticMode::default(),
+        );
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[INC, 0b0100_0011, 0b1001_0000, 16, 0b1100_0000, 1]);
+    }
+
+    #[test]
+    fn encode_bin_short() {
+        let op = Op::Set(
+            BinOp::new(Operand::Loc(8), Operand::Loc(16)),
+            OpType::I16,
+        );
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[SET, 0b0000_0011, 8, 16]);
+    }
+
+    #[test]
+    fn encode_bin_long() {
+        let op = Op::Add(
+            BinOp::new(Operand::Loc(256), Operand::Ind(257)),
+            OpType::U32,
+            ArithmeticMode::default(),
+        );
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[ADD, 0b0000_0100, 0b1000_0001, 0, 1, 0b1001_0001, 1, 1]);
+    }
+
+    #[test]
+    fn encode_cnv() {
+        let op = Op::Cnv(Operand::Loc(12), Operand::Loc(9), OpType::U8, OpType::U16);
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[CNV, 0b0010_0000, 12, 9]);
+    }
+
+    #[test]
+    fn encode_ife() {
+        let op = Op::Ife(
+            BinOp::new(Operand::Loc(12), Operand::Ref(8)).with_x_offset(Operand::Ref(4)),
+            OpType::U16,
+        );
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[IFE, 0b0100_0010, 12, 0b1100_0000, 8, 0b1100_0000, 4]);
+    }
+
+    #[test]
+    fn encode_app() {
+        let op = Op::App(Operand::Ref(8));
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[APP, 0b1100_0000, 8]);
+    }
+
+    #[test]
+    fn encode_par() {
+        let op = Op::Par(
+            UnOp::new(Operand::Ref(8)).with_x_offset(Operand::Val(6)),
+            OpType::F32,
+            ParameterMode::Emp,
+        );
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[PAR, 0b0101_1011, 0b1100_0000, 8, 0b1011_0000, 6]);
     }
 }

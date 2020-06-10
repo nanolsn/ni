@@ -423,7 +423,7 @@ mod tests {
     }
 
     #[test]
-    fn decode_un_xo() {
+    fn decode_un_first_offset() {
         let code = [
             // inc i16 ind(16):ref(1)
             INC, 0b0100_0011, 0b1001_0000, 16, 0b1100_0000, 1,
