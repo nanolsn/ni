@@ -130,6 +130,13 @@ impl UnOp {
         self.x_offset = Some(x_offset);
         self
     }
+
+    pub fn variant(&self) -> Variant {
+        match self {
+            UnOp { x_offset: None, .. } => Variant::NoOffset,
+            _ => Variant::First,
+        }
+    }
 }
 
 impl std::fmt::Debug for UnOp {
@@ -170,6 +177,15 @@ impl BinOp {
     pub fn with_y_offset(mut self, y_offset: Operand) -> Self {
         self.y_offset = Some(y_offset);
         self
+    }
+
+    pub fn variant(&self) -> Variant {
+        match self {
+            BinOp { x_offset: None, y_offset: None, .. } => Variant::NoOffset,
+            BinOp { x_offset: Some(_), y_offset: None, .. } => Variant::First,
+            BinOp { x_offset: None, y_offset: Some(_), .. } => Variant::Second,
+            _ => Variant::Both,
+        }
     }
 }
 
@@ -419,7 +435,7 @@ impl std::fmt::Debug for OpType {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Mode(pub u8);
 
 impl Mode {
@@ -470,6 +486,8 @@ impl ArithmeticMode {
             Hand => 3,
         }
     }
+
+    pub fn as_mode(&self) -> Mode { Mode(self.as_byte()) }
 }
 
 impl Default for ArithmeticMode {
@@ -522,6 +540,8 @@ impl ParameterMode {
             Zer => 2,
         }
     }
+
+    pub fn as_mode(&self) -> Mode { Mode(self.as_byte()) }
 }
 
 impl Default for ParameterMode {
@@ -566,5 +586,16 @@ impl Variant {
             3 => Both,
             _ => return Err(UndefinedOperation::Variant),
         })
+    }
+
+    pub fn as_byte(&self) -> u8 {
+        use Variant::*;
+
+        match self {
+            NoOffset => 0,
+            First => 1,
+            Second => 2,
+            Both => 3,
+        }
     }
 }

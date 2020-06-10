@@ -267,11 +267,11 @@ impl Decode<()> for (OpType, Mode, Variant) {
         const MODE_BITS: u8 = 0b0011_0000;
         const VARIANT_BITS: u8 = 0b1100_0000;
 
-        let byte = bytes.read_u8()?;
+        let meta = bytes.read_u8()?;
 
-        let op_type = OpType::new(byte & OP_TYPE_BITS)?;
-        let mode = Mode((byte & MODE_BITS) >> 4);
-        let variant = Variant::new((byte & VARIANT_BITS) >> 6)?;
+        let op_type = OpType::new(meta & OP_TYPE_BITS)?;
+        let mode = Mode((meta & MODE_BITS) >> 4);
+        let variant = Variant::new((meta & VARIANT_BITS) >> 6)?;
 
         Ok((op_type, mode, variant))
     }
@@ -287,10 +287,10 @@ impl Decode<()> for (OpType, OpType) {
         const OP_TYPE_0_BITS: u8 = 0b0000_1111;
         const OP_TYPE_1_BITS: u8 = 0b1111_0000;
 
-        let byte = bytes.read_u8()?;
+        let meta = bytes.read_u8()?;
 
-        let t = OpType::new(byte & OP_TYPE_0_BITS)?;
-        let u = OpType::new((byte & OP_TYPE_1_BITS) >> 4)?;
+        let t = OpType::new(meta & OP_TYPE_0_BITS)?;
+        let u = OpType::new((meta & OP_TYPE_1_BITS) >> 4)?;
 
         Ok((t, u))
     }
@@ -319,19 +319,19 @@ impl Decode<()> for Operand {
         const KIND_BITS: u8 = 0b0111_0000;
         const LONG_OPERAND_BIT: u8 = 0b1000_0000;
 
-        let operand_meta = bytes.read_u8()?;
+        let meta = bytes.read_u8()?;
 
-        if operand_meta & LONG_OPERAND_BIT == 0 {
-            return Ok((operand_meta & !LONG_OPERAND_BIT).into());
+        if meta & LONG_OPERAND_BIT == 0 {
+            return Ok((meta & !LONG_OPERAND_BIT).into());
         }
 
-        let n_bytes = (operand_meta & SIZE_BITS) as usize + 1;
+        let n_bytes = (meta & SIZE_BITS) as usize + 1;
         let mut buf = [0; std::mem::size_of::<usize>()];
 
         bytes.read(&mut buf[..n_bytes]).expected::<DecodeError>(n_bytes)?;
 
         let value = usize::from_le_bytes(buf);
-        let kind = (operand_meta & KIND_BITS) >> 4;
+        let kind = (meta & KIND_BITS) >> 4;
 
         Ok(Operand::new(value, kind)?)
     }
