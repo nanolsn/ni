@@ -8,7 +8,11 @@ pub enum MemoryError {
     WrongRange,
 }
 
+const WORD_SIZE_BITS: usize = std::mem::size_of::<usize>() * 8;
+
 mod limits {
+    use super::WORD_SIZE_BITS;
+
     pub trait Limit {
         const LIMIT: usize;
         const NAME: &'static str;
@@ -18,7 +22,7 @@ mod limits {
     pub struct Stack {}
 
     impl Limit for Stack {
-        const LIMIT: usize = 1_usize << 23;
+        const LIMIT: usize = 1_usize << (WORD_SIZE_BITS / 3);
         const NAME: &'static str = "stack";
     }
 
@@ -26,7 +30,7 @@ mod limits {
     pub struct Heap {}
 
     impl Limit for Heap {
-        const LIMIT: usize = 1_usize << 31;
+        const LIMIT: usize = 1_usize << (WORD_SIZE_BITS / 2);
         const NAME: &'static str = "heap";
     }
 }
@@ -146,7 +150,7 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub const HEAP_BASE: usize = 1_usize << 32;
+    pub const HEAP_BASE: usize = 1_usize << (WORD_SIZE_BITS / 2);
 
     pub fn new() -> Self {
         Self {
