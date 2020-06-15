@@ -153,7 +153,7 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub const HEAP_BASE: UWord = (1 << (WORD_SIZE_BITS / 2)) as UWord;
+    pub const HEAP_BASE: UWord = (1 as UWord) << (WORD_SIZE_BITS as UWord / 2);
 
     pub fn new() -> Self {
         Self {

@@ -5,5 +5,12 @@ mod operations;
 pub use expected::*;
 pub use operations::*;
 
+#[cfg(feature = "w32")]
 pub type UWord = u32;
+#[cfg(feature = "w32")]
 pub type IWord = i32;
+
+#[cfg(feature = "w64")]
+pub type UWord = u64;
+#[cfg(feature = "w64")]
+pub type IWord = i64;
