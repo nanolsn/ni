@@ -1,4 +1,4 @@
-use super::UWord;
+use super::{UWord, IWord};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum UndefinedOperation {
@@ -412,6 +412,25 @@ impl OpType {
             Iw => 9,
             F32 => 11,
             F64 => 13,
+        }
+    }
+
+    pub fn size(&self) -> UWord {
+        use OpType::*;
+
+        match self {
+            U8 => std::mem::size_of::<u8>() as UWord,
+            I8 => std::mem::size_of::<i8>() as UWord,
+            U16 => std::mem::size_of::<u16>() as UWord,
+            I16 => std::mem::size_of::<i16>() as UWord,
+            U32 => std::mem::size_of::<u32>() as UWord,
+            I32 => std::mem::size_of::<i32>() as UWord,
+            U64 => std::mem::size_of::<u64>() as UWord,
+            I64 => std::mem::size_of::<i64>() as UWord,
+            Uw => std::mem::size_of::<UWord>() as UWord,
+            Iw => std::mem::size_of::<IWord>() as UWord,
+            F32 => std::mem::size_of::<f32>() as UWord,
+            F64 => std::mem::size_of::<f64>() as UWord,
         }
     }
 }
