@@ -326,11 +326,11 @@ impl Decode<()> for Operand {
         }
 
         let n_bytes = (meta & SIZE_BITS) as usize + 1;
-        let mut buf = [0; std::mem::size_of::<usize>()];
+        let mut buf = [0; std::mem::size_of::<UWord>()];
 
         bytes.read(&mut buf[..n_bytes]).expected::<DecodeError>(n_bytes)?;
 
-        let value = usize::from_le_bytes(buf);
+        let value = UWord::from_le_bytes(buf);
         let kind = (meta & KIND_BITS) >> 4;
 
         Ok(Operand::new(value, kind)?)

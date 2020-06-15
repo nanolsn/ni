@@ -6,16 +6,16 @@ use super::{
 
 #[derive(Debug)]
 pub struct Function<'f> {
-    frame_size: usize,
+    frame_size: UWord,
     program: &'f [Op],
 }
 
 #[derive(Debug)]
 pub struct FunctionCall<'f> {
     function: &'f Function<'f>,
-    base_address: usize,
-    ret_address: usize,
-    ret_program_counter: usize,
+    base_address: UWord,
+    ret_address: UWord,
+    ret_program_counter: UWord,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -36,8 +36,8 @@ impl From<MemoryError> for ExecutionError {
 #[derive(Debug, Eq, PartialEq)]
 pub enum ExecutionSuccess {
     Ok,
-    End(usize),
-    Sleep(usize),
+    End(UWord),
+    Sleep(UWord),
 }
 
 pub type Executed = Result<ExecutionSuccess, ExecutionError>;
@@ -46,10 +46,10 @@ pub type Executed = Result<ExecutionSuccess, ExecutionError>;
 pub struct Executor<'f> {
     functions: &'f [Function<'f>],
     memory: Memory,
-    program_counter: usize,
+    program_counter: UWord,
     call_stack: Vec<FunctionCall<'f>>,
     prepared_call: bool,
-    parameter_ptr: usize,
+    parameter_ptr: UWord,
 }
 
 macro_rules! impl_exec_bin {
@@ -132,8 +132,8 @@ macro_rules! impl_cnv {
             I32 => $obj.exec_cnv::<$t, i32>($x, $y)?,
             U64 => $obj.exec_cnv::<$t, u64>($x, $y)?,
             I64 => $obj.exec_cnv::<$t, i64>($x, $y)?,
-            Uw => $obj.exec_cnv::<$t, usize>($x, $y)?,
-            Iw => $obj.exec_cnv::<$t, isize>($x, $y)?,
+            Uw => $obj.exec_cnv::<$t, UWord>($x, $y)?,
+            Iw => $obj.exec_cnv::<$t, IWord>($x, $y)?,
             F32 => $obj.exec_cnv::<$t, f32>($x, $y)?,
             F64 => $obj.exec_cnv::<$t, f64>($x, $y)?,
         }
@@ -152,8 +152,11 @@ impl<'f> Executor<'f> {
         }
     }
 
-    fn app(&mut self, function_id: usize) -> Result<(), ExecutionError> {
-        let f = self.functions.get(function_id).ok_or(ExecutionError::UnknownFunction)?;
+    fn app(&mut self, function_id: UWord) -> Result<(), ExecutionError> {
+        let f = self.functions
+            .get(function_id as usize)
+            .ok_or(ExecutionError::UnknownFunction)?;
+
         self.call_stack.push(FunctionCall {
             function: f,
             base_address: self.memory.stack.len(),
@@ -167,7 +170,7 @@ impl<'f> Executor<'f> {
         Ok(())
     }
 
-    fn clf(&mut self, ret_address: usize) -> Result<(), ExecutionError> {
+    fn clf(&mut self, ret_address: UWord) -> Result<(), ExecutionError> {
         let current_fn = self.call_stack
             .last_mut()
             .ok_or(ExecutionError::EndOfProgram)?;
@@ -181,7 +184,7 @@ impl<'f> Executor<'f> {
         Ok(())
     }
 
-    pub fn call(&mut self, function_id: usize, ret_address: usize) -> Result<(), ExecutionError> {
+    pub fn call(&mut self, function_id: UWord, ret_address: UWord) -> Result<(), ExecutionError> {
         self.app(function_id)?;
         self.clf(ret_address)
     }
@@ -207,7 +210,7 @@ impl<'f> Executor<'f> {
 
     fn current_op(&self) -> Result<&Op, ExecutionError> {
         self.current_call()?.function.program
-            .get(self.program_counter)
+            .get(self.program_counter as usize)
             .ok_or(ExecutionError::EndOfProgram)
     }
 
@@ -237,8 +240,8 @@ impl<'f> Executor<'f> {
             Operand::Ret(ret) => self.memory.get(
                 self.current_call()?.ret_address.wrapping_add(ret)
             )?,
-            Operand::Val(val) => T::from_usize(val),
-            Operand::Ref(var) => T::from_usize(
+            Operand::Val(val) => T::from_word(val),
+            Operand::Ref(var) => T::from_word(
                 self.current_call()?.base_address.wrapping_add(var)
             ),
             Operand::Emp => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
@@ -346,7 +349,7 @@ impl<'f> Executor<'f> {
     }
 
     fn make_offset(&self, a: Operand, offset: Operand) -> Result<Operand, ExecutionError> {
-        let a_offset: usize = self.get_val(offset)?;
+        let a_offset: UWord = self.get_val(offset)?;
         Ok(a.map(|a| a.wrapping_add(a_offset)))
     }
 
@@ -504,7 +507,7 @@ impl<'f> Executor<'f> {
     {
         let frame_size = self.current_call()?.function.frame_size;
         let parameter_loc = self.parameter_ptr.wrapping_add(frame_size);
-        self.parameter_ptr = self.parameter_ptr.wrapping_add(T::SIZE);
+        self.parameter_ptr = self.parameter_ptr.wrapping_add(T::SIZE as UWord);
 
         match mode {
             ParameterMode::Set => {
@@ -544,8 +547,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_set::<i32>(bin)?,
                     U64 => self.exec_set::<u64>(bin)?,
                     I64 => self.exec_set::<i64>(bin)?,
-                    Uw => self.exec_set::<usize>(bin)?,
-                    Iw => self.exec_set::<isize>(bin)?,
+                    Uw => self.exec_set::<UWord>(bin)?,
+                    Iw => self.exec_set::<IWord>(bin)?,
                     F32 => self.exec_set::<f32>(bin)?,
                     F64 => self.exec_set::<f64>(bin)?,
                 }
@@ -562,8 +565,8 @@ impl<'f> Executor<'f> {
                     I32 => impl_cnv!(i32, self, u, x, y),
                     U64 => impl_cnv!(u64, self, u, x, y),
                     I64 => impl_cnv!(i64, self, u, x, y),
-                    Uw => impl_cnv!(usize, self, u, x, y),
-                    Iw => impl_cnv!(isize, self, u, x, y),
+                    Uw => impl_cnv!(UWord, self, u, x, y),
+                    Iw => impl_cnv!(IWord, self, u, x, y),
                     F32 => impl_cnv!(f32, self, u, x, y),
                     F64 => impl_cnv!(f64, self, u, x, y),
                 }
@@ -580,8 +583,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_add::<i32, i64>(bin, mode)?,
                     U64 => self.exec_add::<u64, u128>(bin, mode)?,
                     I64 => self.exec_add::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_add::<usize, usize>(bin, mode)?,
-                    Iw => self.exec_add::<isize, isize>(bin, mode)?,
+                    Uw => self.exec_add::<UWord, UWord>(bin, mode)?,
+                    Iw => self.exec_add::<IWord, IWord>(bin, mode)?,
                     F32 => self.exec_add::<f32, f32>(bin, mode)?,
                     F64 => self.exec_add::<f64, f64>(bin, mode)?,
                 }
@@ -598,8 +601,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_sub::<i32, i64>(bin, mode)?,
                     U64 => self.exec_sub::<u64, u128>(bin, mode)?,
                     I64 => self.exec_sub::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_sub::<usize, usize>(bin, mode)?,
-                    Iw => self.exec_sub::<isize, isize>(bin, mode)?,
+                    Uw => self.exec_sub::<UWord, UWord>(bin, mode)?,
+                    Iw => self.exec_sub::<IWord, IWord>(bin, mode)?,
                     F32 => self.exec_sub::<f32, f32>(bin, mode)?,
                     F64 => self.exec_sub::<f64, f64>(bin, mode)?,
                 }
@@ -616,8 +619,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_mul::<i32, i64>(bin, mode)?,
                     U64 => self.exec_mul::<u64, u128>(bin, mode)?,
                     I64 => self.exec_mul::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_mul::<usize, usize>(bin, mode)?,
-                    Iw => self.exec_mul::<isize, isize>(bin, mode)?,
+                    Uw => self.exec_mul::<UWord, UWord>(bin, mode)?,
+                    Iw => self.exec_mul::<IWord, IWord>(bin, mode)?,
                     F32 => self.exec_mul::<f32, f32>(bin, mode)?,
                     F64 => self.exec_mul::<f64, f64>(bin, mode)?,
                 }
@@ -634,8 +637,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_div::<i32>(bin)?,
                     U64 => self.exec_div::<u64>(bin)?,
                     I64 => self.exec_div::<i64>(bin)?,
-                    Uw => self.exec_div::<usize>(bin)?,
-                    Iw => self.exec_div::<isize>(bin)?,
+                    Uw => self.exec_div::<UWord>(bin)?,
+                    Iw => self.exec_div::<IWord>(bin)?,
                     F32 => self.exec_div::<f32>(bin)?,
                     F64 => self.exec_div::<f64>(bin)?,
                 }
@@ -652,8 +655,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_mod::<i32>(bin)?,
                     U64 => self.exec_mod::<u64>(bin)?,
                     I64 => self.exec_mod::<i64>(bin)?,
-                    Uw => self.exec_mod::<usize>(bin)?,
-                    Iw => self.exec_mod::<isize>(bin)?,
+                    Uw => self.exec_mod::<UWord>(bin)?,
+                    Iw => self.exec_mod::<IWord>(bin)?,
                     F32 => self.exec_mod::<f32>(bin)?,
                     F64 => self.exec_mod::<f64>(bin)?,
                 }
@@ -670,8 +673,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_shl::<i32, i64>(bin, mode)?,
                     U64 => self.exec_shl::<u64, u128>(bin, mode)?,
                     I64 => self.exec_shl::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_shl::<usize, usize>(bin, mode)?,
-                    Iw => self.exec_shl::<isize, isize>(bin, mode)?,
+                    Uw => self.exec_shl::<UWord, UWord>(bin, mode)?,
+                    Iw => self.exec_shl::<IWord, IWord>(bin, mode)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }
@@ -688,8 +691,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_shr::<i32, i64>(bin, mode)?,
                     U64 => self.exec_shr::<u64, u128>(bin, mode)?,
                     I64 => self.exec_shr::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_shr::<usize, usize>(bin, mode)?,
-                    Iw => self.exec_shr::<isize, isize>(bin, mode)?,
+                    Uw => self.exec_shr::<UWord, UWord>(bin, mode)?,
+                    Iw => self.exec_shr::<IWord, IWord>(bin, mode)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }
@@ -706,8 +709,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_and::<i32>(bin)?,
                     U64 => self.exec_and::<u64>(bin)?,
                     I64 => self.exec_and::<i64>(bin)?,
-                    Uw => self.exec_and::<usize>(bin)?,
-                    Iw => self.exec_and::<isize>(bin)?,
+                    Uw => self.exec_and::<UWord>(bin)?,
+                    Iw => self.exec_and::<IWord>(bin)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }
@@ -724,8 +727,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_or::<i32>(bin)?,
                     U64 => self.exec_or::<u64>(bin)?,
                     I64 => self.exec_or::<i64>(bin)?,
-                    Uw => self.exec_or::<usize>(bin)?,
-                    Iw => self.exec_or::<isize>(bin)?,
+                    Uw => self.exec_or::<UWord>(bin)?,
+                    Iw => self.exec_or::<IWord>(bin)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }
@@ -742,8 +745,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_xor::<i32>(bin)?,
                     U64 => self.exec_xor::<u64>(bin)?,
                     I64 => self.exec_xor::<i64>(bin)?,
-                    Uw => self.exec_xor::<usize>(bin)?,
-                    Iw => self.exec_xor::<isize>(bin)?,
+                    Uw => self.exec_xor::<UWord>(bin)?,
+                    Iw => self.exec_xor::<IWord>(bin)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }
@@ -760,8 +763,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_not::<i32>(un)?,
                     U64 => self.exec_not::<u64>(un)?,
                     I64 => self.exec_not::<i64>(un)?,
-                    Uw => self.exec_not::<usize>(un)?,
-                    Iw => self.exec_not::<isize>(un)?,
+                    Uw => self.exec_not::<UWord>(un)?,
+                    Iw => self.exec_not::<IWord>(un)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }
@@ -778,8 +781,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_neg::<i32, i64>(un, mode)?,
                     U64 => self.exec_neg::<u64, u128>(un, mode)?,
                     I64 => self.exec_neg::<i64, i128>(un, mode)?,
-                    Uw => self.exec_neg::<usize, usize>(un, mode)?,
-                    Iw => self.exec_neg::<isize, isize>(un, mode)?,
+                    Uw => self.exec_neg::<UWord, UWord>(un, mode)?,
+                    Iw => self.exec_neg::<IWord, IWord>(un, mode)?,
                     F32 => self.exec_neg::<f32, f32>(un, mode)?,
                     F64 => self.exec_neg::<f64, f64>(un, mode)?,
                 }
@@ -796,8 +799,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_inc::<i32, i64>(un, mode)?,
                     U64 => self.exec_inc::<u64, u128>(un, mode)?,
                     I64 => self.exec_inc::<i64, i128>(un, mode)?,
-                    Uw => self.exec_inc::<usize, usize>(un, mode)?,
-                    Iw => self.exec_inc::<isize, isize>(un, mode)?,
+                    Uw => self.exec_inc::<UWord, UWord>(un, mode)?,
+                    Iw => self.exec_inc::<IWord, IWord>(un, mode)?,
                     F32 => self.exec_inc::<f32, f32>(un, mode)?,
                     F64 => self.exec_inc::<f64, f64>(un, mode)?,
                 }
@@ -814,8 +817,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_dec::<i32, i64>(un, mode)?,
                     U64 => self.exec_dec::<u64, u128>(un, mode)?,
                     I64 => self.exec_dec::<i64, i128>(un, mode)?,
-                    Uw => self.exec_dec::<usize, usize>(un, mode)?,
-                    Iw => self.exec_dec::<isize, isize>(un, mode)?,
+                    Uw => self.exec_dec::<UWord, UWord>(un, mode)?,
+                    Iw => self.exec_dec::<IWord, IWord>(un, mode)?,
                     F32 => self.exec_dec::<f32, f32>(un, mode)?,
                     F64 => self.exec_dec::<f64, f64>(un, mode)?,
                 }
@@ -836,8 +839,8 @@ impl<'f> Executor<'f> {
                     I32 => self.get_un::<i32>(un)? != 0,
                     U64 => self.get_un::<u64>(un)? != 0,
                     I64 => self.get_un::<i64>(un)? != 0,
-                    Uw => self.get_un::<usize>(un)? != 0,
-                    Iw => self.get_un::<isize>(un)? != 0,
+                    Uw => self.get_un::<UWord>(un)? != 0,
+                    Iw => self.get_un::<IWord>(un)? != 0,
                     F32 => self.get_un::<f32>(un)? != 0.0,
                     F64 => self.get_un::<f64>(un)? != 0.0,
                 };
@@ -859,8 +862,8 @@ impl<'f> Executor<'f> {
                     I32 => self.get_un::<i32>(un)? == 0,
                     U64 => self.get_un::<u64>(un)? == 0,
                     I64 => self.get_un::<i64>(un)? == 0,
-                    Uw => self.get_un::<usize>(un)? == 0,
-                    Iw => self.get_un::<isize>(un)? == 0,
+                    Uw => self.get_un::<UWord>(un)? == 0,
+                    Iw => self.get_un::<IWord>(un)? == 0,
                     F32 => self.get_un::<f32>(un)? == 0.0,
                     F64 => self.get_un::<f64>(un)? == 0.0,
                 };
@@ -882,8 +885,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ife::<i32>(bo)?,
                     U64 => self.exec_ife::<u64>(bo)?,
                     I64 => self.exec_ife::<i64>(bo)?,
-                    Uw => self.exec_ife::<usize>(bo)?,
-                    Iw => self.exec_ife::<isize>(bo)?,
+                    Uw => self.exec_ife::<UWord>(bo)?,
+                    Iw => self.exec_ife::<IWord>(bo)?,
                     F32 => self.exec_ife::<f32>(bo)?,
                     F64 => self.exec_ife::<f64>(bo)?,
                 };
@@ -905,8 +908,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ifl::<i32>(bo)?,
                     U64 => self.exec_ifl::<u64>(bo)?,
                     I64 => self.exec_ifl::<i64>(bo)?,
-                    Uw => self.exec_ifl::<usize>(bo)?,
-                    Iw => self.exec_ifl::<isize>(bo)?,
+                    Uw => self.exec_ifl::<UWord>(bo)?,
+                    Iw => self.exec_ifl::<IWord>(bo)?,
                     F32 => self.exec_ifl::<f32>(bo)?,
                     F64 => self.exec_ifl::<f64>(bo)?,
                 };
@@ -928,8 +931,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ifg::<i32>(bo)?,
                     U64 => self.exec_ifg::<u64>(bo)?,
                     I64 => self.exec_ifg::<i64>(bo)?,
-                    Uw => self.exec_ifg::<usize>(bo)?,
-                    Iw => self.exec_ifg::<isize>(bo)?,
+                    Uw => self.exec_ifg::<UWord>(bo)?,
+                    Iw => self.exec_ifg::<IWord>(bo)?,
                     F32 => self.exec_ifg::<f32>(bo)?,
                     F64 => self.exec_ifg::<f64>(bo)?,
                 };
@@ -951,8 +954,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ine::<i32>(bo)?,
                     U64 => self.exec_ine::<u64>(bo)?,
                     I64 => self.exec_ine::<i64>(bo)?,
-                    Uw => self.exec_ine::<usize>(bo)?,
-                    Iw => self.exec_ine::<isize>(bo)?,
+                    Uw => self.exec_ine::<UWord>(bo)?,
+                    Iw => self.exec_ine::<IWord>(bo)?,
                     F32 => self.exec_ine::<f32>(bo)?,
                     F64 => self.exec_ine::<f64>(bo)?,
                 };
@@ -974,8 +977,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_inl::<i32>(bo)?,
                     U64 => self.exec_inl::<u64>(bo)?,
                     I64 => self.exec_inl::<i64>(bo)?,
-                    Uw => self.exec_inl::<usize>(bo)?,
-                    Iw => self.exec_inl::<isize>(bo)?,
+                    Uw => self.exec_inl::<UWord>(bo)?,
+                    Iw => self.exec_inl::<IWord>(bo)?,
                     F32 => self.exec_inl::<f32>(bo)?,
                     F64 => self.exec_inl::<f64>(bo)?,
                 };
@@ -997,8 +1000,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ing::<i32>(bo)?,
                     U64 => self.exec_ing::<u64>(bo)?,
                     I64 => self.exec_ing::<i64>(bo)?,
-                    Uw => self.exec_ing::<usize>(bo)?,
-                    Iw => self.exec_ing::<isize>(bo)?,
+                    Uw => self.exec_ing::<UWord>(bo)?,
+                    Iw => self.exec_ing::<IWord>(bo)?,
                     F32 => self.exec_ing::<f32>(bo)?,
                     F64 => self.exec_ing::<f64>(bo)?,
                 };
@@ -1020,8 +1023,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ifa::<i32>(bo)?,
                     U64 => self.exec_ifa::<u64>(bo)?,
                     I64 => self.exec_ifa::<i64>(bo)?,
-                    Uw => self.exec_ifa::<usize>(bo)?,
-                    Iw => self.exec_ifa::<isize>(bo)?,
+                    Uw => self.exec_ifa::<UWord>(bo)?,
+                    Iw => self.exec_ifa::<IWord>(bo)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1043,8 +1046,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ifo::<i32>(bo)?,
                     U64 => self.exec_ifo::<u64>(bo)?,
                     I64 => self.exec_ifo::<i64>(bo)?,
-                    Uw => self.exec_ifo::<usize>(bo)?,
-                    Iw => self.exec_ifo::<isize>(bo)?,
+                    Uw => self.exec_ifo::<UWord>(bo)?,
+                    Iw => self.exec_ifo::<IWord>(bo)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1066,8 +1069,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ifx::<i32>(bo)?,
                     U64 => self.exec_ifx::<u64>(bo)?,
                     I64 => self.exec_ifx::<i64>(bo)?,
-                    Uw => self.exec_ifx::<usize>(bo)?,
-                    Iw => self.exec_ifx::<isize>(bo)?,
+                    Uw => self.exec_ifx::<UWord>(bo)?,
+                    Iw => self.exec_ifx::<IWord>(bo)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1089,8 +1092,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ina::<i32>(bo)?,
                     U64 => self.exec_ina::<u64>(bo)?,
                     I64 => self.exec_ina::<i64>(bo)?,
-                    Uw => self.exec_ina::<usize>(bo)?,
-                    Iw => self.exec_ina::<isize>(bo)?,
+                    Uw => self.exec_ina::<UWord>(bo)?,
+                    Iw => self.exec_ina::<IWord>(bo)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1112,8 +1115,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_ino::<i32>(bo)?,
                     U64 => self.exec_ino::<u64>(bo)?,
                     I64 => self.exec_ino::<i64>(bo)?,
-                    Uw => self.exec_ino::<usize>(bo)?,
-                    Iw => self.exec_ino::<isize>(bo)?,
+                    Uw => self.exec_ino::<UWord>(bo)?,
+                    Iw => self.exec_ino::<IWord>(bo)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1135,8 +1138,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_inx::<i32>(bo)?,
                     U64 => self.exec_inx::<u64>(bo)?,
                     I64 => self.exec_inx::<i64>(bo)?,
-                    Uw => self.exec_inx::<usize>(bo)?,
-                    Iw => self.exec_inx::<isize>(bo)?,
+                    Uw => self.exec_inx::<UWord>(bo)?,
+                    Iw => self.exec_inx::<IWord>(bo)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1162,8 +1165,8 @@ impl<'f> Executor<'f> {
                     I32 => self.exec_par::<i32>(un, mode)?,
                     U64 => self.exec_par::<u64>(un, mode)?,
                     I64 => self.exec_par::<i64>(un, mode)?,
-                    Uw => self.exec_par::<usize>(un, mode)?,
-                    Iw => self.exec_par::<isize>(un, mode)?,
+                    Uw => self.exec_par::<UWord>(un, mode)?,
+                    Iw => self.exec_par::<IWord>(un, mode)?,
                     F32 => self.exec_par::<f32>(un, mode)?,
                     F64 => self.exec_par::<f64>(un, mode)?,
                 }
@@ -1241,7 +1244,7 @@ mod tests {
     #[test]
     fn executor_set() {
         let fb = f32::to_le_bytes(0.123);
-        let float = usize::from_le_bytes([fb[0], fb[1], fb[2], fb[3], 0, 0, 0, 0]);
+        let float = UWord::from_slice(fb.as_ref());
 
         let functions = [
             Function {
@@ -1311,23 +1314,23 @@ mod tests {
                         ArithmeticMode::Wrap,
                     ),
                     Op::Add(
-                        BinOp::new(Operand::Loc(0), Operand::Val(u32::MAX as usize)),
+                        BinOp::new(Operand::Loc(0), Operand::Val(u32::MAX as UWord)),
                         OpType::I32,
                         ArithmeticMode::Wrap,
                     ),
                     Op::Add(
-                        BinOp::new(Operand::Loc(0), Operand::Val(i32::MAX as usize)),
+                        BinOp::new(Operand::Loc(0), Operand::Val(i32::MAX as UWord)),
                         OpType::I32,
                         ArithmeticMode::Sat,
                     ),
                     Op::Add(
-                        BinOp::new(Operand::Loc(0), Operand::Val(i32::MAX as usize)),
+                        BinOp::new(Operand::Loc(0), Operand::Val(i32::MAX as UWord)),
                         OpType::I32,
                         ArithmeticMode::Wide,
                     ),
                     Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(1)), OpType::I32),
                     Op::Add(
-                        BinOp::new(Operand::Loc(0), Operand::Val(i32::MAX as usize)),
+                        BinOp::new(Operand::Loc(0), Operand::Val(i32::MAX as UWord)),
                         OpType::I32,
                         ArithmeticMode::Hand,
                     ),

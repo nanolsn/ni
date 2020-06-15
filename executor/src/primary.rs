@@ -1,3 +1,5 @@
+use common::UWord;
+
 pub trait Primary: Sized {
     const SIZE: usize = std::mem::size_of::<Self>();
 
@@ -13,7 +15,7 @@ pub trait Primary: Sized {
 
     fn one() -> Self;
 
-    fn from_usize(val: usize) -> Self;
+    fn from_word(val: UWord) -> Self;
 }
 
 macro_rules! impl_primary {
@@ -40,11 +42,11 @@ macro_rules! impl_primary {
 
             fn one() -> Self { 1 as $t }
 
-            fn from_usize(val: usize) -> Self {
+            fn from_word(val: UWord) -> Self {
                 let mut buf = [0; Self::SIZE];
-                let ubytes = usize::to_le_bytes(val);
+                let ubytes = UWord::to_le_bytes(val);
 
-                for i in 0..Self::SIZE.min(std::mem::size_of::<usize>()) {
+                for i in 0..Self::SIZE.min(std::mem::size_of::<UWord>()) {
                     buf[i] = ubytes[i];
                 }
 

@@ -1,17 +1,18 @@
+use common::UWord;
 use super::primary::Primary;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum MemoryError {
     PageOverflow(&'static str),
     RageUnderflow(&'static str),
-    SegmentationFault(usize, usize),
+    SegmentationFault(UWord, UWord),
     WrongRange,
 }
 
-const WORD_SIZE_BITS: usize = std::mem::size_of::<usize>() * 8;
+const WORD_SIZE_BITS: usize = std::mem::size_of::<UWord>() * 8;
 
 mod limits {
-    use super::WORD_SIZE_BITS;
+    use super::*;
 
     pub trait Limit {
         const LIMIT: usize;
@@ -22,7 +23,7 @@ mod limits {
     pub struct Stack {}
 
     impl Limit for Stack {
-        const LIMIT: usize = 1_usize << (WORD_SIZE_BITS / 3);
+        const LIMIT: usize = 1 << (WORD_SIZE_BITS / 3);
         const NAME: &'static str = "stack";
     }
 
@@ -30,7 +31,7 @@ mod limits {
     pub struct Heap {}
 
     impl Limit for Heap {
-        const LIMIT: usize = 1_usize << (WORD_SIZE_BITS / 2);
+        const LIMIT: usize = 1 << (WORD_SIZE_BITS / 2);
         const NAME: &'static str = "heap";
     }
 }
@@ -53,8 +54,8 @@ impl<L> MemoryPage<L>
         }
     }
 
-    pub fn expand(&mut self, size: usize) -> Result<(), MemoryError> {
-        let len = self.page.len().saturating_add(size);
+    pub fn expand(&mut self, size: UWord) -> Result<(), MemoryError> {
+        let len = self.page.len().saturating_add(size as usize);
 
         if len > L::LIMIT {
             Err(MemoryError::PageOverflow(L::NAME))
@@ -64,7 +65,9 @@ impl<L> MemoryPage<L>
         }
     }
 
-    pub fn narrow(&mut self, size: usize) -> Result<(), MemoryError> {
+    pub fn narrow(&mut self, size: UWord) -> Result<(), MemoryError> {
+        let size = size as usize;
+
         if self.page.len() < size {
             Err(MemoryError::PageOverflow(L::NAME))
         } else {
@@ -74,21 +77,21 @@ impl<L> MemoryPage<L>
         }
     }
 
-    pub fn len(&self) -> usize { self.page.len() }
+    pub fn len(&self) -> UWord { self.page.len() as UWord }
 
     pub fn as_slice(&self) -> &[u8] { self.page.as_slice() }
 
-    pub fn get(&self, ptr: usize, size: usize) -> Result<&[u8], MemoryError> {
-        self.page.get(ptr..ptr.wrapping_add(size))
+    pub fn get(&self, ptr: UWord, size: UWord) -> Result<&[u8], MemoryError> {
+        self.page.get(ptr as usize..ptr.wrapping_add(size) as usize)
             .ok_or(MemoryError::SegmentationFault(ptr, size))
     }
 
-    pub fn get_mut(&mut self, ptr: usize, size: usize) -> Result<&mut [u8], MemoryError> {
-        self.page.get_mut(ptr..ptr.wrapping_add(size))
+    pub fn get_mut(&mut self, ptr: UWord, size: UWord) -> Result<&mut [u8], MemoryError> {
+        self.page.get_mut(ptr as usize..ptr.wrapping_add(size) as usize)
             .ok_or(MemoryError::SegmentationFault(ptr, size))
     }
 
-    pub fn memmove(&mut self, dest: usize, src: usize, size: usize) -> Result<(), MemoryError> {
+    pub fn memmove(&mut self, dest: UWord, src: UWord, size: UWord) -> Result<(), MemoryError> {
         let src_end = src.wrapping_add(size);
         let dest_end = dest.wrapping_add(size);
 
@@ -101,7 +104,7 @@ impl<L> MemoryPage<L>
         } else {
             self.page
                 .as_mut_slice()
-                .copy_within(src..src_end, dest);
+                .copy_within(src as usize..src_end as usize, dest as usize);
 
             Ok(())
         }
@@ -150,7 +153,7 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub const HEAP_BASE: usize = 1_usize << (WORD_SIZE_BITS / 2);
+    pub const HEAP_BASE: UWord = (1 << (WORD_SIZE_BITS / 2)) as UWord;
 
     pub fn new() -> Self {
         Self {
@@ -159,32 +162,32 @@ impl Memory {
         }
     }
 
-    pub fn set<T>(&mut self, ptr: usize, value: T) -> Result<(), MemoryError>
+    pub fn set<T>(&mut self, ptr: UWord, value: T) -> Result<(), MemoryError>
         where
             T: Primary,
     {
         use std::borrow::Borrow;
 
-        let dest = self.slice_mut(ptr, T::SIZE)?;
+        let dest = self.slice_mut(ptr, T::SIZE as UWord)?;
         dest.copy_from_slice(value.to_bytes().borrow());
         Ok(())
     }
 
-    pub fn get<T>(&self, ptr: usize) -> Result<T, MemoryError>
+    pub fn get<T>(&self, ptr: UWord) -> Result<T, MemoryError>
         where
             T: Primary,
     {
-        let src = self.slice(ptr, T::SIZE)?;
+        let src = self.slice(ptr, T::SIZE as UWord)?;
         Ok(T::from_slice(src))
     }
 
-    pub fn update<T, F>(&mut self, ptr: usize, f: F) -> Result<(), MemoryError>
+    pub fn update<T, F>(&mut self, ptr: UWord, f: F) -> Result<(), MemoryError>
         where
             T: Primary,
             F: FnOnce(T) -> T,
     { self.set(ptr, f(self.get(ptr)?)) }
 
-    pub fn copy(&mut self, dest: usize, src: usize, size: usize) -> Result<(), MemoryError> {
+    pub fn copy(&mut self, dest: UWord, src: UWord, size: UWord) -> Result<(), MemoryError> {
         let dest_on_stack = dest < Memory::HEAP_BASE;
         let src_on_stack = src < Memory::HEAP_BASE;
 
@@ -214,7 +217,7 @@ impl Memory {
         };
     }
 
-    fn slice(&self, ptr: usize, size: usize) -> Result<&[u8], MemoryError> {
+    fn slice(&self, ptr: UWord, size: UWord) -> Result<&[u8], MemoryError> {
         if ptr < Memory::HEAP_BASE {
             self.stack.get(ptr, size)
         } else {
@@ -223,7 +226,7 @@ impl Memory {
         }
     }
 
-    fn slice_mut(&mut self, ptr: usize, size: usize) -> Result<&mut [u8], MemoryError> {
+    fn slice_mut(&mut self, ptr: UWord, size: UWord) -> Result<&mut [u8], MemoryError> {
         if ptr < Memory::HEAP_BASE {
             self.stack.get_mut(ptr, size)
         } else {
@@ -245,7 +248,7 @@ mod tests {
         assert_eq!(mem.stack.as_slice(), [0, 0, 0, 0]);
 
         let mut mem = Memory::new();
-        assert_eq!(mem.stack.expand(usize::MAX), Err(MemoryError::PageOverflow("stack")));
+        assert_eq!(mem.stack.expand(UWord::MAX), Err(MemoryError::PageOverflow("stack")));
     }
 
     #[test]
@@ -352,6 +355,6 @@ mod tests {
         let mut mem = Memory::new();
         mem.stack.expand(2).unwrap();
 
-        assert_eq!(mem.copy(0, 1, usize::MAX), Err(MemoryError::WrongRange));
+        assert_eq!(mem.copy(0, 1, UWord::MAX), Err(MemoryError::WrongRange));
     }
 }

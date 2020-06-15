@@ -1,3 +1,5 @@
+use super::UWord;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum UndefinedOperation {
     OpType,
@@ -12,27 +14,27 @@ pub enum Operand {
     /// Local variable.
     ///
     /// Expressed as `x` or `loc(12)`.
-    Loc(usize),
+    Loc(UWord),
 
     /// Indirection access.
     ///
     /// Expressed as `*x` or `ind(12)`.
-    Ind(usize),
+    Ind(UWord),
 
     /// Return variable.
     ///
     /// Expressed as `^x` or `ret(12)`.
-    Ret(usize),
+    Ret(UWord),
 
     /// Constant value.
     ///
     /// Expressed as `12` or `val(12)`.
-    Val(usize),
+    Val(UWord),
 
     /// Variable reference.
     ///
     /// Expressed as `&x` or `ref(12)`.
-    Ref(usize),
+    Ref(UWord),
 
     /// Empty.
     ///
@@ -41,7 +43,7 @@ pub enum Operand {
 }
 
 impl Operand {
-    pub fn new(value: usize, kind: u8) -> Result<Self, UndefinedOperation> {
+    pub fn new(value: UWord, kind: u8) -> Result<Self, UndefinedOperation> {
         use Operand::*;
 
         Ok(match kind {
@@ -68,7 +70,7 @@ impl Operand {
         }
     }
 
-    pub fn get(self) -> Option<usize> {
+    pub fn get(self) -> Option<UWord> {
         use Operand::*;
 
         match self {
@@ -83,7 +85,7 @@ impl Operand {
 
     pub fn map<F>(self, f: F) -> Self
         where
-            F: FnOnce(usize) -> usize,
+            F: FnOnce(UWord) -> UWord,
     {
         use Operand::*;
 
@@ -99,7 +101,7 @@ impl Operand {
 }
 
 impl From<u8> for Operand {
-    fn from(byte: u8) -> Self { Operand::Loc(byte as usize) }
+    fn from(byte: u8) -> Self { Operand::Loc(byte as UWord) }
 }
 
 impl std::fmt::Debug for Operand {
@@ -107,11 +109,11 @@ impl std::fmt::Debug for Operand {
         use Operand::*;
 
         match self {
-            Loc(v) => write!(f, "loc({:#02X?})", v),
-            Ind(v) => write!(f, "ind({:#02X?})", v),
-            Ret(v) => write!(f, "ret({:#02X?})", v),
-            Val(v) => write!(f, "val({:#02X?})", v),
-            Ref(v) => write!(f, "ref({:#02X?})", v),
+            Loc(v) => write!(f, "loc({:#X?})", v),
+            Ind(v) => write!(f, "ind({:#X?})", v),
+            Ret(v) => write!(f, "ret({:#X?})", v),
+            Val(v) => write!(f, "val({:#X?})", v),
+            Ref(v) => write!(f, "ref({:#X?})", v),
             Emp => write!(f, "emp"),
         }
     }

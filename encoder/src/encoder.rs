@@ -201,7 +201,7 @@ impl Encode for Operand {
             W: Write,
     {
         const LONG_OPERAND_BIT: u8 = 0b1000_0000;
-        const SHORT_MAX_VALUE: usize = 0b0111_1111;
+        const SHORT_MAX_VALUE: UWord = 0b0111_1111;
 
         if let Some(val) = self.get() {
             let bytes = val.to_le_bytes();
