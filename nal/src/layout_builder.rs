@@ -21,21 +21,30 @@ pub struct LayoutBuilder<'n> {
 impl<'n> LayoutBuilder<'n> {
     pub fn new() -> Self { Self { blocks: vec![] } }
 
-    pub fn new_op_type(&mut self, name: &'n str, op: OpType) {
-        self.blocks.push(Block::New { ty: BlockType::OpType(op), name })
+    pub fn new_op_type(mut self, name: &'n str, op: OpType) -> Self {
+        self.blocks.push(Block::New { ty: BlockType::OpType(op), name });
+        self
     }
 
-    pub fn new_layout(&mut self, name: &'n str, lay_idx: usize) {
-        self.blocks.push(Block::New { ty: BlockType::Layout(lay_idx), name })
+    pub fn new_layout(mut self, name: &'n str, lay_idx: usize) -> Self {
+        self.blocks.push(Block::New { ty: BlockType::Layout(lay_idx), name });
+        self
     }
 
-    pub fn new_fn(&mut self, name: &'n str) {
-        self.blocks.push(Block::New { ty: BlockType::Function, name })
+    pub fn new_fn(mut self, name: &'n str) -> Self {
+        self.blocks.push(Block::New { ty: BlockType::Function, name });
+        self
     }
 
-    pub fn add_indirect(&mut self) { self.blocks.push(Block::Indirect) }
+    pub fn add_indirect(mut self) -> Self {
+        self.blocks.push(Block::Indirect);
+        self
+    }
 
-    pub fn add_array(&mut self, size: UWord) { self.blocks.push(Block::Array(size)) }
+    pub fn add_array(mut self, size: UWord) -> Self {
+        self.blocks.push(Block::Array(size));
+        self
+    }
 
     pub fn build<'t>(self) -> Result<Layout<'n, 't>, LayoutError> {
         let (n_fields, n_types) = self.blocks
@@ -118,21 +127,21 @@ mod tests {
     #[test]
     fn layout_builder() {
         let lay = {
-            let mut builder = LayoutBuilder::new();
-            builder.new_layout("lay", 0);
-            builder.add_indirect();
-            builder.add_array(4);
-            builder.build().unwrap()
+            LayoutBuilder::new()
+                .new_layout("lay", 0)
+                .add_indirect()
+                .add_array(4)
+                .build().unwrap()
         };
 
         assert!(matches!(lay.fields[0].ty, Ty::Array(Ty::Indirect(Ty::Layout(0)), 4)));
 
         let lay = {
-            let mut builder = LayoutBuilder::new();
-            builder.new_layout("lay", 0);
-            builder.add_array(2);
-            builder.add_array(3);
-            builder.build().unwrap()
+            LayoutBuilder::new()
+                .new_layout("lay", 0)
+                .add_array(2)
+                .add_array(3)
+                .build().unwrap()
         };
 
         assert!(matches!(lay.fields[0].ty, Ty::Array(Ty::Array(Ty::Layout(0), 2), 3)));
@@ -141,9 +150,9 @@ mod tests {
     #[test]
     fn layout_error() {
         let res = {
-            let mut builder = LayoutBuilder::new();
-            builder.add_indirect();
-            builder.build().unwrap_err()
+            LayoutBuilder::new()
+                .add_indirect()
+                .build().unwrap_err()
         };
 
         assert_eq!(res, LayoutError::UnexpectedIndirection);

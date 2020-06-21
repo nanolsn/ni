@@ -65,16 +65,16 @@ mod tests {
     #[test]
     fn layout() {
         let lay = {
-            let mut builder = Layout::builder();
-            builder.new_fn("f");
-            builder.new_op_type("x", OpType::U32);
-            builder.add_indirect();
-            builder.new_op_type("y", OpType::I32);
-            builder.add_array(12);
-            builder.add_array(4);
-            builder.new_layout("self", 0);
-            builder.add_indirect();
-            builder.build().unwrap()
+            Layout::builder()
+                .new_fn("f")
+                .new_op_type("x", OpType::U32)
+                .add_indirect()
+                .new_op_type("y", OpType::I32)
+                .add_array(12)
+                .add_array(4)
+                .new_layout("self", 0)
+                .add_indirect()
+                .build().unwrap()
         };
 
         assert!(matches!(lay.fields[0].ty, Ty::Function));
