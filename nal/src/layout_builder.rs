@@ -126,35 +126,27 @@ mod tests {
 
     #[test]
     fn layout_builder() {
-        let lay = {
-            LayoutBuilder::new()
-                .new_layout("lay", 0)
-                .add_indirect()
-                .add_array(4)
-                .build().unwrap()
-        };
+        let lay = LayoutBuilder::new()
+            .new_layout("a", 0)
+            .add_indirect()
+            .add_array(4)
+            .new_layout("b", 0)
+            .add_array(2)
+            .add_array(3)
+            .build()
+            .unwrap();
 
         assert!(matches!(lay.fields[0].ty, Ty::Array(Ty::Indirect(Ty::Layout(0)), 4)));
-
-        let lay = {
-            LayoutBuilder::new()
-                .new_layout("lay", 0)
-                .add_array(2)
-                .add_array(3)
-                .build().unwrap()
-        };
-
-        assert!(matches!(lay.fields[0].ty, Ty::Array(Ty::Array(Ty::Layout(0), 2), 3)));
+        assert!(matches!(lay.fields[1].ty, Ty::Array(Ty::Array(Ty::Layout(0), 2), 3)));
     }
 
     #[test]
     fn layout_error() {
-        let res = {
-            LayoutBuilder::new()
-                .add_indirect()
-                .build().unwrap_err()
-        };
+        let err = LayoutBuilder::new()
+            .add_indirect()
+            .build()
+            .unwrap_err();
 
-        assert_eq!(res, LayoutError::UnexpectedIndirection);
+        assert_eq!(err, LayoutError::UnexpectedIndirection);
     }
 }

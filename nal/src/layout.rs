@@ -64,18 +64,24 @@ mod tests {
 
     #[test]
     fn layout() {
-        let lay = {
-            Layout::builder()
-                .new_fn("f")
-                .new_op_type("x", OpType::U32)
-                .add_indirect()
-                .new_op_type("y", OpType::I32)
-                .add_array(12)
-                .add_array(4)
-                .new_layout("self", 0)
-                .add_indirect()
-                .build().unwrap()
-        };
+        let other = Layout::builder()
+            .new_op_type("a", OpType::U8)
+            .new_op_type("b", OpType::U16)
+            .build()
+            .unwrap();
+
+        let lay = Layout::builder()
+            .new_fn("f")
+            .new_op_type("x", OpType::U32)
+            .add_indirect()
+            .new_op_type("y", OpType::I32)
+            .add_array(12)
+            .add_array(4)
+            .new_layout("self", 0)
+            .add_indirect()
+            .new_layout("other", 0)
+            .build()
+            .unwrap();
 
         assert!(matches!(lay.fields[0].ty, Ty::Function));
         assert!(matches!(lay.fields[1].ty, Ty::Indirect(Ty::OpType(OpType::U32))));
@@ -83,11 +89,12 @@ mod tests {
         assert!(matches!(lay.fields[3].ty, Ty::Indirect(Ty::Layout(0))));
 
         assert_eq!(
-            lay.size(&[]),
+            lay.size(&[other]),
             WORD_SIZE        // f
                 + WORD_SIZE  // x
                 + 4 * 12 * 4 // y
-                + WORD_SIZE, // self
+                + WORD_SIZE  // self
+                + 1 + 2      // other
         );
     }
 }
