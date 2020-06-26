@@ -90,12 +90,12 @@ impl Operand {
         use Operand::*;
 
         match self {
-            Loc(v) => Operand::Loc(f(v)),
-            Ind(v) => Operand::Ind(f(v)),
-            Ret(v) => Operand::Ret(f(v)),
-            Val(v) => Operand::Val(f(v)),
-            Ref(v) => Operand::Ref(f(v)),
-            Emp => Operand::Emp,
+            Loc(v) => Loc(f(v)),
+            Ind(v) => Ind(f(v)),
+            Ret(v) => Ret(f(v)),
+            Val(v) => Val(f(v)),
+            Ref(v) => Ref(f(v)),
+            Emp => Emp,
         }
     }
 }

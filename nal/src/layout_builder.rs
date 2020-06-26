@@ -49,10 +49,10 @@ impl<'n> LayoutBuilder<'n> {
     pub fn build<'t>(self) -> Result<Layout<'n, 't>, LayoutError> {
         let (n_fields, n_types) = self.blocks
             .iter()
-            .fold((0usize, 0usize), |(fx, ix), b| match b {
-                Block::New { .. } => (fx + 1, ix),
-                Block::Array(_) => (fx, ix + 1),
-                Block::Indirect => (fx, ix + 1),
+            .fold((0usize, 0usize), |(fx, tx), b| match b {
+                Block::New { .. } => (fx + 1, tx),
+                Block::Array(_) => (fx, tx + 1),
+                Block::Indirect => (fx, tx + 1),
             });
 
         let mut fields = Vec::with_capacity(n_fields);

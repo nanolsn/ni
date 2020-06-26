@@ -14,7 +14,7 @@ impl Expected for Result<usize, std::io::Error> {
             E: ExpectedError + From<std::io::Error>,
     {
         match self {
-            Ok(r) if r == bytes => Ok(()),
+            Ok(o) if o == bytes => Ok(()),
             Ok(_) => Err(E::ERROR),
             Err(e) => Err(e.into()),
         }
