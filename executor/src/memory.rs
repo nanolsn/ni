@@ -167,7 +167,7 @@ impl Memory {
 
     pub fn reserve_global(&mut self, size: UWord) -> Result<(), MemoryError> {
         if self.heap.len() == 0 {
-            self.heap.expand(size);
+            self.heap.expand(size)?;
             self.global_base = size;
             Ok(())
         } else {
