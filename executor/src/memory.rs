@@ -7,6 +7,7 @@ pub enum MemoryError {
     RageUnderflow(&'static str),
     SegmentationFault(UWord, UWord),
     WrongRange,
+    HeapAlreadyUsed,
 }
 
 const WORD_SIZE_BITS: usize = std::mem::size_of::<UWord>() * 8;
@@ -150,6 +151,7 @@ impl<L> std::fmt::Debug for MemoryPage<L>
 pub struct Memory {
     pub stack: MemoryPage<Stack>,
     pub heap: MemoryPage<Heap>,
+    pub global_base: UWord,
 }
 
 impl Memory {
@@ -159,6 +161,17 @@ impl Memory {
         Self {
             stack: MemoryPage::new(),
             heap: MemoryPage::new(),
+            global_base: 0,
+        }
+    }
+
+    pub fn reserve_global(&mut self, size: UWord) -> Result<(), MemoryError> {
+        if self.heap.len() == 0 {
+            self.heap.expand(size);
+            self.global_base = size;
+            Ok(())
+        } else {
+            Err(MemoryError::HeapAlreadyUsed)
         }
     }
 
@@ -356,5 +369,18 @@ mod tests {
         mem.stack.expand(2).unwrap();
 
         assert_eq!(mem.copy(0, 1, UWord::MAX), Err(MemoryError::WrongRange));
+    }
+
+    #[test]
+    fn memory_reserve_global() {
+        let mut mem = Memory::new();
+        mem.reserve_global(12).unwrap();
+        mem.set::<u16>(Memory::HEAP_BASE, 0xFF32).unwrap();
+
+        assert_eq!(mem.global_base, 12);
+        let value = mem.get::<u16>(Memory::HEAP_BASE).unwrap();
+        assert_eq!(value, 0xFF32);
+
+        assert_eq!(mem.reserve_global(12), Err(MemoryError::HeapAlreadyUsed))
     }
 }
