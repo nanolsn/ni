@@ -5,7 +5,7 @@ pub struct View<T>(Option<Box<[T]>>);
 impl<T> View<T> {
     pub fn from_vec(vec: Vec<T>) -> Self {
         if vec.is_empty() {
-            Self(None)
+            Self::empty()
         } else {
             Self(Some(vec.into_boxed_slice()))
         }
@@ -13,11 +13,17 @@ impl<T> View<T> {
 
     pub fn from_box(boxed: Box<[T]>) -> Self {
         if boxed.is_empty() {
-            Self(None)
+            Self::empty()
         } else {
             Self(Some(boxed))
         }
     }
+
+    pub fn empty() -> Self { Self(None) }
+}
+
+impl<T> Default for View<T> {
+    fn default() -> Self { Self::empty() }
 }
 
 impl<T> std::ops::Deref for View<T> {
