@@ -204,18 +204,18 @@ impl Rem for f64 {
 }
 
 pub trait Shl: Primary {
-    fn wrapping(self, r: Self) -> Self;
-    fn saturating(self, r: Self) -> Self;
-    fn checked(self, r: Self) -> Option<Self>;
+    fn wrapping(self, r: u8) -> Self;
+    fn saturating(self, r: u8) -> Self;
+    fn checked(self, r: u8) -> Option<Self>;
 }
 
 macro_rules! impl_shl {
     ($($t:ty),+) => {
         $(
         impl Shl for $t {
-            fn wrapping(self, r: Self) -> Self { self.wrapping_shl(r as u32) }
-            fn saturating(self, r: Self) -> Self { self.wrapping_shl(r as u32) }
-            fn checked(self, r: Self) -> Option<Self> { self.checked_shl(r as u32) }
+            fn wrapping(self, r: u8) -> Self { self.wrapping_shl(r as u32) }
+            fn saturating(self, r: u8) -> Self { self.wrapping_shl(r as u32) }
+            fn checked(self, r: u8) -> Option<Self> { self.checked_shl(r as u32) }
         }
         )+
     }
@@ -224,18 +224,18 @@ macro_rules! impl_shl {
 impl_shl!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 
 pub trait Shr: Primary {
-    fn wrapping(self, r: Self) -> Self;
-    fn saturating(self, r: Self) -> Self;
-    fn checked(self, r: Self) -> Option<Self>;
+    fn wrapping(self, r: u8) -> Self;
+    fn saturating(self, r: u8) -> Self;
+    fn checked(self, r: u8) -> Option<Self>;
 }
 
 macro_rules! impl_shr {
     ($($t:ty),+) => {
         $(
         impl Shr for $t {
-            fn wrapping(self, r: Self) -> Self { self.wrapping_shr(r as u32) }
-            fn saturating(self, r: Self) -> Self { self.wrapping_shr(r as u32) }
-            fn checked(self, r: Self) -> Option<Self> { self.checked_shr(r as u32) }
+            fn wrapping(self, r: u8) -> Self { self.wrapping_shr(r as u32) }
+            fn saturating(self, r: u8) -> Self { self.wrapping_shr(r as u32) }
+            fn checked(self, r: u8) -> Option<Self> { self.checked_shr(r as u32) }
         }
         )+
     }

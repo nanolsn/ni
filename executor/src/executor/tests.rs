@@ -108,6 +108,48 @@ fn executor_cnv() {
 }
 
 #[test]
+fn executor_shl() {
+    let functions = [
+        Function {
+            frame_size: 8,
+            program: &[
+                Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::U32),
+                Op::Shl(Operand::Loc(0), Operand::Val(1), OpType::U32),
+            ],
+        },
+    ];
+
+    let mut exe = Executor::new(&functions);
+    exe.call(0, 0).unwrap();
+
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(4));
+}
+
+#[test]
+fn executor_shr() {
+    let functions = [
+        Function {
+            frame_size: 9,
+            program: &[
+                Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(2)), OpType::U32),
+                Op::Set(BinOp::new(Operand::Loc(8), Operand::Val(1)), OpType::U8),
+                Op::Shr(Operand::Loc(0), Operand::Loc(8), OpType::U32),
+            ],
+        },
+    ];
+
+    let mut exe = Executor::new(&functions);
+    exe.call(0, 0).unwrap();
+
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(1));
+}
+
+#[test]
 fn executor_add() {
     let functions = [
         Function {

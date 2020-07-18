@@ -23,7 +23,6 @@ pub struct FunctionCall<'f> {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum ExecutionError {
-    NotImplemented,
     EndOfProgram,
     MemoryError(MemoryError),
     IncorrectOperation(Op),
@@ -364,7 +363,7 @@ impl<'f> Executor<'f> {
     fn exec_cnv<T, U>(&mut self, left: Operand, right: Operand) -> Result<(), ExecutionError>
         where
             T: Primary,
-            U: Primary + Convert<T>,
+            U: Convert<T>,
     { self.set_val(left, U::convert(self.get_val(right)?)) }
 
     impl_exec_bin!(exec_add, Add);
@@ -381,8 +380,23 @@ impl<'f> Executor<'f> {
             T: Rem + PartialEq,
     { self.update_bin_division::<T, _>(bin, |x, y| x.wrapping(y)) }
 
-    impl_exec_bin!(exec_shl, Shl);
-    impl_exec_bin!(exec_shr, Shr);
+    fn exec_shl<T>(&mut self, x: Operand, y: Operand) -> Result<(), ExecutionError>
+        where
+            T: Shl
+    {
+        let x_val: T = self.get_val(x)?;
+        let y_val: u8 = self.get_val(y)?;
+        self.set_val(x, x_val.wrapping(y_val))
+    }
+
+    fn exec_shr<T>(&mut self, x: Operand, y: Operand) -> Result<(), ExecutionError>
+        where
+            T: Shr
+    {
+        let x_val: T = self.get_val(x)?;
+        let y_val: u8 = self.get_val(y)?;
+        self.set_val(x, x_val.wrapping(y_val))
+    }
 
     fn exec_and<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
         where
@@ -669,36 +683,36 @@ impl<'f> Executor<'f> {
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Shl(bin, ot, mode) => {
+            Shl(x, y, ot) => {
                 match ot {
-                    U8 => self.exec_shl::<u8, u16>(bin, mode)?,
-                    I8 => self.exec_shl::<i8, i16>(bin, mode)?,
-                    U16 => self.exec_shl::<u16, u32>(bin, mode)?,
-                    I16 => self.exec_shl::<i16, i32>(bin, mode)?,
-                    U32 => self.exec_shl::<u32, u64>(bin, mode)?,
-                    I32 => self.exec_shl::<i32, i64>(bin, mode)?,
-                    U64 => self.exec_shl::<u64, u128>(bin, mode)?,
-                    I64 => self.exec_shl::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_shl::<UWord, UWord>(bin, mode)?,
-                    Iw => self.exec_shl::<IWord, IWord>(bin, mode)?,
+                    U8 => self.exec_shl::<u8>(x, y)?,
+                    I8 => self.exec_shl::<i8>(x, y)?,
+                    U16 => self.exec_shl::<u16>(x, y)?,
+                    I16 => self.exec_shl::<i16>(x, y)?,
+                    U32 => self.exec_shl::<u32>(x, y)?,
+                    I32 => self.exec_shl::<i32>(x, y)?,
+                    U64 => self.exec_shl::<u64>(x, y)?,
+                    I64 => self.exec_shl::<i64>(x, y)?,
+                    Uw => self.exec_shl::<UWord>(x, y)?,
+                    Iw => self.exec_shl::<IWord>(x, y)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Shr(bin, ot, mode) => {
+            Shr(x, y, ot) => {
                 match ot {
-                    U8 => self.exec_shr::<u8, u16>(bin, mode)?,
-                    I8 => self.exec_shr::<i8, i16>(bin, mode)?,
-                    U16 => self.exec_shr::<u16, u32>(bin, mode)?,
-                    I16 => self.exec_shr::<i16, i32>(bin, mode)?,
-                    U32 => self.exec_shr::<u32, u64>(bin, mode)?,
-                    I32 => self.exec_shr::<i32, i64>(bin, mode)?,
-                    U64 => self.exec_shr::<u64, u128>(bin, mode)?,
-                    I64 => self.exec_shr::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_shr::<UWord, UWord>(bin, mode)?,
-                    Iw => self.exec_shr::<IWord, IWord>(bin, mode)?,
+                    U8 => self.exec_shr::<u8>(x, y)?,
+                    I8 => self.exec_shr::<i8>(x, y)?,
+                    U16 => self.exec_shr::<u16>(x, y)?,
+                    I16 => self.exec_shr::<i16>(x, y)?,
+                    U32 => self.exec_shr::<u32>(x, y)?,
+                    I32 => self.exec_shr::<i32>(x, y)?,
+                    U64 => self.exec_shr::<u64>(x, y)?,
+                    I64 => self.exec_shr::<i64>(x, y)?,
+                    Uw => self.exec_shr::<UWord>(x, y)?,
+                    Iw => self.exec_shr::<IWord>(x, y)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 }

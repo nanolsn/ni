@@ -63,13 +63,17 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             MOD.encode(buf)?;
             (b, t).encode(buf)
         }
-        Shl(b, t, m) => {
+        Shl(x, y, t) => {
             SHL.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)
+            t.encode(buf)?;
+            x.encode(buf)?;
+            y.encode(buf)
         }
-        Shr(b, t, m) => {
+        Shr(x, y, t) => {
             SHR.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)
+            t.encode(buf)?;
+            x.encode(buf)?;
+            y.encode(buf)
         }
         And(b, t) => {
             AND.encode(buf)?;
@@ -451,6 +455,16 @@ mod tests {
         encode_op(op, &mut buf).unwrap();
 
         assert_eq!(buf, &[CNV, 0b0010_0000, 12, 9]);
+    }
+
+    #[test]
+    fn encode_shl() {
+        let op = Op::Shl(Operand::Loc(12), Operand::Loc(9), OpType::U32);
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[SHL, 0b0000_0100, 12, 9]);
     }
 
     #[test]

@@ -221,8 +221,8 @@ pub enum Op {
     Mul(BinOp, OpType, ArithmeticMode),
     Div(BinOp, OpType),
     Mod(BinOp, OpType),
-    Shl(BinOp, OpType, ArithmeticMode),
-    Shr(BinOp, OpType, ArithmeticMode),
+    Shl(Operand, Operand, OpType),
+    Shr(Operand, Operand, OpType),
     And(BinOp, OpType),
     Or(BinOp, OpType),
     Xor(BinOp, OpType),
@@ -271,42 +271,42 @@ impl Op {
 
         match self {
             Nop => NOP,
-            End(_) => END,
-            Slp(_) => SLP,
-            Set(_, _) => SET,
-            Cnv(_, _, _, _) => CNV,
-            Add(_, _, _) => ADD,
-            Sub(_, _, _) => SUB,
-            Mul(_, _, _) => MUL,
-            Div(_, _) => DIV,
-            Mod(_, _) => MOD,
-            Shl(_, _, _) => SHL,
-            Shr(_, _, _) => SHR,
-            And(_, _) => AND,
-            Or(_, _) => OR,
-            Xor(_, _) => XOR,
-            Not(_, _) => NOT,
-            Neg(_, _, _) => NEG,
-            Inc(_, _, _) => INC,
-            Dec(_, _, _) => DEC,
-            Go(_) => GO,
-            Ift(_, _) => IFT,
-            Iff(_, _) => IFF,
-            Ife(_, _) => IFE,
-            Ifl(_, _) => IFL,
-            Ifg(_, _) => IFG,
-            Ine(_, _) => INE,
-            Inl(_, _) => INL,
-            Ing(_, _) => ING,
-            Ifa(_, _) => IFA,
-            Ifo(_, _) => IFO,
-            Ifx(_, _) => IFX,
-            Ina(_, _) => INA,
-            Ino(_, _) => INO,
-            Inx(_, _) => INX,
-            App(_) => APP,
-            Par(_, _, _) => PAR,
-            Clf(_) => CLF,
+            End(..) => END,
+            Slp(..) => SLP,
+            Set(..) => SET,
+            Cnv(..) => CNV,
+            Add(..) => ADD,
+            Sub(..) => SUB,
+            Mul(..) => MUL,
+            Div(..) => DIV,
+            Mod(..) => MOD,
+            Shl(..) => SHL,
+            Shr(..) => SHR,
+            And(..) => AND,
+            Or(..) => OR,
+            Xor(..) => XOR,
+            Not(..) => NOT,
+            Neg(..) => NEG,
+            Inc(..) => INC,
+            Dec(..) => DEC,
+            Go(..) => GO,
+            Ift(..) => IFT,
+            Iff(..) => IFF,
+            Ife(..) => IFE,
+            Ifl(..) => IFL,
+            Ifg(..) => IFG,
+            Ine(..) => INE,
+            Inl(..) => INL,
+            Ing(..) => ING,
+            Ifa(..) => IFA,
+            Ifo(..) => IFO,
+            Ifx(..) => IFX,
+            Ina(..) => INA,
+            Ino(..) => INO,
+            Inx(..) => INX,
+            App(..) => APP,
+            Par(..) => PAR,
+            Clf(..) => CLF,
             Ret => RET,
         }
     }
@@ -327,8 +327,8 @@ impl std::fmt::Debug for Op {
             Mul(b, t, m) => write!(f, "mul {:?} {:?} {:?}", m, t, b),
             Div(b, t) => write!(f, "div {:?} {:?}", t, b),
             Mod(b, t) => write!(f, "mod {:?} {:?}", t, b),
-            Shl(b, t, m) => write!(f, "shl {:?} {:?} {:?}", m, t, b),
-            Shr(b, t, m) => write!(f, "shr {:?} {:?} {:?}", m, t, b),
+            Shl(x, y, t) => write!(f, "shl {:?} {:?} {:?}", t, x, y),
+            Shr(x, y, t) => write!(f, "shr {:?} {:?} {:?}", t, x, y),
             And(b, t) => write!(f, "and {:?} {:?}", t, b),
             Or(b, t) => write!(f, "or  {:?} {:?}", t, b),
             Xor(b, t) => write!(f, "xor {:?} {:?}", t, b),
@@ -586,13 +586,13 @@ pub enum Variant {
     /// `x y` variant.
     NoOffset,
 
-    /// `x:q y` variant.
+    /// `x{q} y` variant.
     First,
 
-    /// `x y:q` variant.
+    /// `x y{q}` variant.
     Second,
 
-    /// `x:q y:w` variant.
+    /// `x{q} y{w}` variant.
     Both,
 }
 
@@ -619,4 +619,8 @@ impl Variant {
             Both => 3,
         }
     }
+}
+
+impl Default for Variant {
+    fn default() -> Self { Variant::NoOffset }
 }

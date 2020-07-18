@@ -78,12 +78,16 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Mod(bin_op, op_type)
         }
         SHL => {
-            let (bin_op, op_type, mode) = decode(bytes)?;
-            Shl(bin_op, op_type, mode)
+            let op_type = decode(bytes)?;
+            let x = decode(bytes)?;
+            let y = decode(bytes)?;
+            Shl(x, y, op_type)
         }
         SHR => {
-            let (bin_op, op_type, mode) = decode(bytes)?;
-            Shr(bin_op, op_type, mode)
+            let op_type = decode(bytes)?;
+            let x = decode(bytes)?;
+            let y = decode(bytes)?;
+            Shr(x, y, op_type)
         }
         AND => {
             let (bin_op, op_type, _) = decode(bytes)?;
@@ -277,6 +281,22 @@ impl Decode<()> for (OpType, Mode, Variant) {
     }
 }
 
+impl Decode<()> for OpType {
+    type Err = DecodeError;
+
+    fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
+        where
+            R: Read,
+    {
+        const OP_TYPE_BITS: u8 = 0b0000_1111;
+
+        let meta = bytes.read_u8()?;
+        let t = OpType::new(meta & OP_TYPE_BITS)?;
+
+        Ok(t)
+    }
+}
+
 impl Decode<()> for (OpType, OpType) {
     type Err = DecodeError;
 
@@ -372,7 +392,7 @@ mod tests {
     #[test]
     fn decode_incorrect_variant() {
         let code = [
-            // inc u16 loc(12):loc(0) ref(8)
+            // inc u16 loc(12){loc(0)} ref(8)
             INC, 0b1000_0010, 12, 0b1100_0000, 8, 0,
         ];
 
@@ -425,7 +445,7 @@ mod tests {
     #[test]
     fn decode_un_first_offset() {
         let code = [
-            // inc i16 ind(16):ref(1)
+            // inc i16 ind(16){ref(1)}
             INC, 0b0100_0011, 0b1001_0000, 16, 0b1100_0000, 1,
         ];
 
@@ -484,7 +504,7 @@ mod tests {
     #[test]
     fn decode_bin_first_offset() {
         let code = [
-            // set u32 ret(8):val(5) ref(16)
+            // set u32 ret(8){val(5)} ref(16)
             SET, 0b0101_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
         ];
 
@@ -503,7 +523,7 @@ mod tests {
     #[test]
     fn decode_bin_second_offset() {
         let code = [
-            // div u32 ret(8) ref(16):val(5)
+            // div u32 ret(8) ref(16){val(5)}
             DIV, 0b1000_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
         ];
 
@@ -522,7 +542,7 @@ mod tests {
     #[test]
     fn decode_bin_both_offset() {
         let code = [
-            // mod u32 ret(8):val(5) ref(16):val(6)
+            // mod u32 ret(8){val(5)} ref(16){val(6)}
             MOD, 0b1100_0100, 0b1010_0000, 8, 0b1100_0000, 16,
             0b1011_0000, 5,
             0b1011_0000, 6,
@@ -559,9 +579,25 @@ mod tests {
     }
 
     #[test]
+    fn decode_shl() {
+        let code = [
+            // shl u32 loc(12) loc(9)
+            SHL, 0b0000_0100, 12, 9,
+        ];
+
+        let expected = Op::Shl(Operand::Loc(12), Operand::Loc(9), OpType::U32);
+
+        let mut code = code.as_ref();
+        let actual = decode_op(&mut code).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(code.is_empty());
+    }
+
+    #[test]
     fn decode_ife() {
         let code = [
-            // ife u16 loc(12):ref(4) ref(8)
+            // ife u16 loc(12){ref(4)} ref(8)
             IFE, 0b0100_0010, 12, 0b1100_0000, 8, 0b1100_0011, 4, 0, 0, 0,
         ];
 
@@ -612,7 +648,7 @@ mod tests {
     #[test]
     fn decode_par() {
         let code = [
-            // par emp ref(8):val(6)
+            // par emp ref(8){val(6)}
             PAR, 0b0101_1011, 0b1100_0000, 8, 0b1011_0000, 6,
         ];
 
