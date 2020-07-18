@@ -17,7 +17,7 @@ pub struct Function<'f> {
 pub struct FunctionCall<'f> {
     function: &'f Function<'f>,
     base_address: UWord,
-    ret_address: UWord,
+    ret_val_ptr: UWord,
     ret_program_counter: UWord,
 }
 
@@ -144,9 +144,13 @@ macro_rules! impl_cnv {
 
 impl<'f> Executor<'f> {
     pub fn new(functions: &'f [Function]) -> Self {
+        Self::from_limits(functions, 2048, 2048)
+    }
+
+    pub fn from_limits(functions: &'f [Function], stack_limit: usize, heap_limit: usize) -> Self {
         Self {
             functions,
-            memory: Memory::new(),
+            memory: Memory::from_limits(stack_limit, heap_limit),
             program_counter: 0,
             call_stack: Vec::new(),
             prepared_call: false,
@@ -162,7 +166,7 @@ impl<'f> Executor<'f> {
         self.call_stack.push(FunctionCall {
             function: f,
             base_address: self.memory.stack.len(),
-            ret_address: 0,
+            ret_val_ptr: 0,
             ret_program_counter: 0,
         });
 
@@ -172,12 +176,12 @@ impl<'f> Executor<'f> {
         Ok(())
     }
 
-    fn clf(&mut self, ret_address: UWord) -> Result<(), ExecutionError> {
+    fn clf(&mut self, ret_val_ptr: UWord) -> Result<(), ExecutionError> {
         let current_fn = self.call_stack
             .last_mut()
             .ok_or(ExecutionError::EndOfProgram)?;
 
-        current_fn.ret_address = ret_address;
+        current_fn.ret_val_ptr = ret_val_ptr;
         current_fn.ret_program_counter = self.program_counter.wrapping_add(1);
         self.prepared_call = false;
         self.program_counter = 0;
@@ -186,9 +190,9 @@ impl<'f> Executor<'f> {
         Ok(())
     }
 
-    pub fn call(&mut self, function_id: UWord, ret_address: UWord) -> Result<(), ExecutionError> {
+    pub fn call(&mut self, function_id: UWord, ret_val_ptr: UWord) -> Result<(), ExecutionError> {
         self.app(function_id)?;
-        self.clf(ret_address)
+        self.clf(ret_val_ptr)
     }
 
     fn ret(&mut self) -> Result<(), ExecutionError> {
@@ -240,7 +244,7 @@ impl<'f> Executor<'f> {
                 self.memory.get(self.current_call()?.base_address.wrapping_add(ptr))?
             )?,
             Operand::Ret(ret) => self.memory.get(
-                self.current_call()?.ret_address.wrapping_add(ret)
+                self.current_call()?.ret_val_ptr.wrapping_add(ret)
             )?,
             Operand::Val(val) => T::from_word(val),
             Operand::Ref(var) => T::from_word(
@@ -264,7 +268,7 @@ impl<'f> Executor<'f> {
                 val,
             )?,
             Operand::Ret(ret) => self.memory.set(
-                self.current_call()?.ret_address.wrapping_add(ret),
+                self.current_call()?.ret_val_ptr.wrapping_add(ret),
                 val,
             )?,
             Operand::Val(_) => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),

@@ -7,59 +7,28 @@ pub enum MemoryError {
     RageUnderflow(&'static str),
     SegmentationFault(UWord, UWord),
     WrongRange,
-    HeapAlreadyUsed,
 }
 
-const WORD_SIZE_BITS: usize = std::mem::size_of::<UWord>() * 8;
-
-mod limits {
-    use super::*;
-
-    pub trait Limit {
-        const LIMIT: usize;
-        const NAME: &'static str;
-    }
-
-    #[derive(Debug)]
-    pub struct Stack {}
-
-    impl Limit for Stack {
-        const LIMIT: usize = 1 << (WORD_SIZE_BITS / 3);
-        const NAME: &'static str = "stack";
-    }
-
-    #[derive(Debug)]
-    pub struct Heap {}
-
-    impl Limit for Heap {
-        const LIMIT: usize = 1 << (WORD_SIZE_BITS / 2);
-        const NAME: &'static str = "heap";
-    }
-}
-
-use limits::*;
-
-pub struct MemoryPage<L> {
+pub struct MemoryPage {
     page: Vec<u8>,
-    limit: std::marker::PhantomData<L>,
+    limit: usize,
+    name: &'static str,
 }
 
-impl<L> MemoryPage<L>
-    where
-        L: Limit,
-{
-    fn new() -> Self {
+impl MemoryPage {
+    fn new(limit: usize, name: &'static str) -> Self {
         Self {
             page: Vec::new(),
-            limit: std::marker::PhantomData,
+            limit,
+            name,
         }
     }
 
     pub fn expand(&mut self, size: UWord) -> Result<(), MemoryError> {
         let len = self.page.len().saturating_add(size as usize);
 
-        if len > L::LIMIT {
-            Err(MemoryError::PageOverflow(L::NAME))
+        if len > self.limit {
+            Err(MemoryError::PageOverflow(self.name))
         } else {
             self.page.resize(len, 0);
             Ok(())
@@ -70,7 +39,7 @@ impl<L> MemoryPage<L>
         let size = size as usize;
 
         if self.page.len() < size {
-            Err(MemoryError::PageOverflow(L::NAME))
+            Err(MemoryError::PageOverflow(self.name))
         } else {
             let len = self.page.len() - size;
             self.page.truncate(len);
@@ -112,10 +81,7 @@ impl<L> MemoryPage<L>
     }
 }
 
-impl<L> std::fmt::Debug for MemoryPage<L>
-    where
-        L: Limit,
-{
+impl std::fmt::Debug for MemoryPage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use std::fmt::Write;
 
@@ -149,29 +115,22 @@ impl<L> std::fmt::Debug for MemoryPage<L>
 
 #[derive(Debug)]
 pub struct Memory {
-    pub stack: MemoryPage<Stack>,
-    pub heap: MemoryPage<Heap>,
-    pub global_base: UWord,
+    pub stack: MemoryPage,
+    pub heap: MemoryPage,
 }
 
 impl Memory {
-    pub const HEAP_BASE: UWord = (1 as UWord) << (WORD_SIZE_BITS as UWord / 2);
+    pub const WORD_SIZE_BITS: UWord = std::mem::size_of::<UWord>() as UWord * 8;
+    pub const HEAP_BASE: UWord = (1 as UWord) << (Self::WORD_SIZE_BITS / 2);
 
-    pub fn new() -> Self {
-        Self {
-            stack: MemoryPage::new(),
-            heap: MemoryPage::new(),
-            global_base: 0,
+    pub fn from_limits(stack_limit: usize, heap_limit: usize) -> Self {
+        if stack_limit >= Self::HEAP_BASE as usize {
+            panic!("Stack limit must be less than heap base ({})", Self::HEAP_BASE)
         }
-    }
 
-    pub fn reserve_global(&mut self, size: UWord) -> Result<(), MemoryError> {
-        if self.heap.len() == 0 {
-            self.heap.expand(size)?;
-            self.global_base = size;
-            Ok(())
-        } else {
-            Err(MemoryError::HeapAlreadyUsed)
+        Self {
+            stack: MemoryPage::new(stack_limit, "stack"),
+            heap: MemoryPage::new(heap_limit, "heap"),
         }
     }
 
@@ -255,18 +214,18 @@ mod tests {
 
     #[test]
     fn memory_append() {
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.stack.expand(4).unwrap();
         assert_eq!(mem.stack.len(), 4);
         assert_eq!(mem.stack.as_slice(), [0, 0, 0, 0]);
 
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         assert_eq!(mem.stack.expand(UWord::MAX), Err(MemoryError::PageOverflow("stack")));
     }
 
     #[test]
     fn memory_set_get_stack() {
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.stack.expand(9).unwrap();
         mem.set(1, 0xFF000F0A_usize).unwrap();
         assert_eq!(mem.stack.as_slice(), [0, 10, 15, 0, 255, 0, 0, 0, 0]);
@@ -277,7 +236,7 @@ mod tests {
 
     #[test]
     fn memory_set_get_heap() {
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.heap.expand(9).unwrap();
         mem.set(Memory::HEAP_BASE + 1, 0xFF000F0A_usize).unwrap();
         assert_eq!(mem.heap.as_slice(), [0, 10, 15, 0, 255, 0, 0, 0, 0]);
@@ -288,7 +247,7 @@ mod tests {
 
     #[test]
     fn memory_update() {
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.stack.expand(8).unwrap();
         mem.set(0, 1).unwrap();
 
@@ -305,7 +264,7 @@ mod tests {
 
     #[test]
     fn memory_copy() {
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.stack.expand(8).unwrap();
         mem.set(0, 12).unwrap();
 
@@ -314,7 +273,7 @@ mod tests {
 
         assert_eq!(mem.stack.as_slice(), mem.heap.as_slice());
 
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.heap.expand(8).unwrap();
         mem.set(Memory::HEAP_BASE, 0xFF32).unwrap();
 
@@ -326,7 +285,7 @@ mod tests {
 
     #[test]
     fn memory_copy_move() {
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.stack.expand(16).unwrap();
         mem.set(0, 0xFF04).unwrap();
 
@@ -336,7 +295,7 @@ mod tests {
             4, 255, 0, 0, 0, 0, 0, 0,
         ]);
 
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.heap.expand(16).unwrap();
         mem.set(Memory::HEAP_BASE, 0xFF04).unwrap();
 
@@ -349,7 +308,7 @@ mod tests {
 
     #[test]
     fn memory_copy_segmentation_fault() {
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.stack.expand(0).unwrap();
         mem.copy(0, 0, 0).unwrap();
 
@@ -365,22 +324,9 @@ mod tests {
 
     #[test]
     fn memory_copy_wrong_range() {
-        let mut mem = Memory::new();
+        let mut mem = Memory::from_limits(2048, 2048);
         mem.stack.expand(2).unwrap();
 
         assert_eq!(mem.copy(0, 1, UWord::MAX), Err(MemoryError::WrongRange));
-    }
-
-    #[test]
-    fn memory_reserve_global() {
-        let mut mem = Memory::new();
-        mem.reserve_global(12).unwrap();
-        mem.set::<u16>(Memory::HEAP_BASE, 0xFF32).unwrap();
-
-        assert_eq!(mem.global_base, 12);
-        let value = mem.get::<u16>(Memory::HEAP_BASE).unwrap();
-        assert_eq!(value, 0xFF32);
-
-        assert_eq!(mem.reserve_global(12), Err(MemoryError::HeapAlreadyUsed))
     }
 }
