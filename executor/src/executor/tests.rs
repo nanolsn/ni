@@ -18,8 +18,12 @@ fn executor_set_get_val() {
     assert_eq!(exe.set_val(Operand::Loc(0), 8), Ok(()));
     assert_eq!(exe.get_val::<usize>(Operand::Loc(0)), Ok(8));
 
-    assert_eq!(exe.set_val(Operand::Ind(0), 8), Ok(()));
-    assert_eq!(exe.get_val::<usize>(Operand::Ind(0)), Ok(8));
+    assert_eq!(exe.set_val(Operand::Glb(0), 8), Ok(()));
+    assert_eq!(exe.get_val::<usize>(Operand::Glb(0)), Ok(8));
+
+    let null_deref_err = ExecutionError::NullPointerDereference;
+    assert_eq!(exe.set_val(Operand::Ind(0), 8), Err(null_deref_err));
+    assert_eq!(exe.get_val::<usize>(Operand::Ind(0)), Err(null_deref_err));
 
     assert_eq!(exe.set_val(Operand::Ret(0), 3), Ok(()));
     assert_eq!(exe.get_val::<usize>(Operand::Ret(0)), Ok(3));
@@ -60,6 +64,7 @@ fn executor_set() {
                 Op::Set(BinOp::new(Operand::Emp, Operand::Val(12)), OpType::I32),
                 Op::Set(BinOp::new(Operand::Loc(1), Operand::Val(32)), OpType::I8),
                 Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(float)), OpType::F32),
+                Op::Set(BinOp::new(Operand::Glb(0), Operand::Val(float)), OpType::F32),
             ],
         },
     ];
@@ -82,6 +87,9 @@ fn executor_set() {
 
     assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
     assert_eq!(exe.get_val::<i8>(Operand::Loc(1)), Ok(32));
+
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.get_val::<f32>(Operand::Loc(0)), Ok(0.123));
 
     assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
     assert_eq!(exe.get_val::<f32>(Operand::Loc(0)), Ok(0.123));

@@ -1,7 +1,7 @@
 use common::UWord;
 use super::primary::Primary;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MemoryError {
     PageOverflow(&'static str),
     RageUnderflow(&'static str),

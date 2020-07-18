@@ -16,12 +16,12 @@ pub struct Function<'f> {
 #[derive(Debug)]
 pub struct FunctionCall<'f> {
     function: &'f Function<'f>,
-    base_address: UWord,
+    base_ptr: UWord,
     ret_val_ptr: UWord,
     ret_program_counter: UWord,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ExecutionError {
     EndOfProgram,
     MemoryError(MemoryError),
@@ -29,6 +29,7 @@ pub enum ExecutionError {
     UnknownFunction,
     OperationOverflow,
     DivisionByZero,
+    NullPointerDereference,
 }
 
 impl From<MemoryError> for ExecutionError {
@@ -165,7 +166,7 @@ impl<'f> Executor<'f> {
 
         self.call_stack.push(FunctionCall {
             function: f,
-            base_address: self.memory.stack.len(),
+            base_ptr: self.memory.stack.len(),
             ret_val_ptr: 0,
             ret_program_counter: 0,
         });
@@ -238,17 +239,21 @@ impl<'f> Executor<'f> {
     {
         Ok(match operand {
             Operand::Loc(loc) => self.memory.get(
-                self.current_call()?.base_address.wrapping_add(loc)
+                self.current_call()?.base_ptr.wrapping_add(loc)
             )?,
-            Operand::Ind(ptr) => self.memory.get(
-                self.memory.get(self.current_call()?.base_address.wrapping_add(ptr))?
-            )?,
+            Operand::Ind(ptr) => if ptr == 0 {
+                return Err(ExecutionError::NullPointerDereference);
+            } else {
+                self.memory.get(
+                    self.memory.get(self.current_call()?.base_ptr.wrapping_add(ptr))?
+                )?
+            }
             Operand::Ret(ret) => self.memory.get(
                 self.current_call()?.ret_val_ptr.wrapping_add(ret)
             )?,
             Operand::Val(val) => T::from_word(val),
             Operand::Ref(var) => T::from_word(
-                self.current_call()?.base_address.wrapping_add(var)
+                self.current_call()?.base_ptr.wrapping_add(var)
             ),
             Operand::Glb(var) => self.memory.get(var)?,
             Operand::Emp => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
@@ -261,13 +266,17 @@ impl<'f> Executor<'f> {
     {
         Ok(match operand {
             Operand::Loc(loc) => self.memory.set(
-                self.current_call()?.base_address.wrapping_add(loc),
+                self.current_call()?.base_ptr.wrapping_add(loc),
                 val,
             )?,
-            Operand::Ind(ptr) => self.memory.set(
-                self.memory.get(self.current_call()?.base_address.wrapping_add(ptr))?,
-                val,
-            )?,
+            Operand::Ind(ptr) => if ptr == 0 {
+                return Err(ExecutionError::NullPointerDereference);
+            } else {
+                self.memory.set(
+                    self.memory.get(self.current_call()?.base_ptr.wrapping_add(ptr))?,
+                    val,
+                )?
+            }
             Operand::Ret(ret) => self.memory.set(
                 self.current_call()?.ret_val_ptr.wrapping_add(ret),
                 val,
