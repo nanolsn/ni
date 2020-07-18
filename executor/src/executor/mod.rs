@@ -250,6 +250,7 @@ impl<'f> Executor<'f> {
             Operand::Ref(var) => T::from_word(
                 self.current_call()?.base_address.wrapping_add(var)
             ),
+            Operand::Glb(var) => self.memory.get(var)?,
             Operand::Emp => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
         })
     }
@@ -273,6 +274,7 @@ impl<'f> Executor<'f> {
             )?,
             Operand::Val(_) => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
             Operand::Ref(_) => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
+            Operand::Glb(var) => self.memory.set(var, val)?,
             Operand::Emp => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
         })
     }

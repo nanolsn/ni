@@ -36,6 +36,11 @@ pub enum Operand {
     /// Expressed as `&x` or `ref(12)`.
     Ref(UWord),
 
+    /// Global variable.
+    ///
+    /// Expressed as `.x` or `glb(12)`.
+    Glb(UWord),
+
     /// Empty.
     ///
     /// Expressed as `emp`.
@@ -43,16 +48,17 @@ pub enum Operand {
 }
 
 impl Operand {
-    pub fn new(value: UWord, kind: u8) -> Result<Self, UndefinedOperation> {
+    pub fn new(val: UWord, kind: u8) -> Result<Self, UndefinedOperation> {
         use Operand::*;
 
         Ok(match kind {
-            0 => Loc(value),
-            1 => Ind(value),
-            2 => Ret(value),
-            3 => Val(value),
-            4 => Ref(value),
-            5 => Emp,
+            0 => Loc(val),
+            1 => Ind(val),
+            2 => Ret(val),
+            3 => Val(val),
+            4 => Ref(val),
+            5 => Glb(val),
+            6 => Emp,
             _ => return Err(UndefinedOperation::Kind),
         })
     }
@@ -66,7 +72,8 @@ impl Operand {
             Ret(_) => 2,
             Val(_) => 3,
             Ref(_) => 4,
-            Emp => 5,
+            Glb(_) => 5,
+            Emp => 6,
         }
     }
 
@@ -79,6 +86,7 @@ impl Operand {
             Ret(v) => Some(v),
             Val(v) => Some(v),
             Ref(v) => Some(v),
+            Glb(v) => Some(v),
             Emp => None,
         }
     }
@@ -95,6 +103,7 @@ impl Operand {
             Ret(v) => Ret(f(v)),
             Val(v) => Val(f(v)),
             Ref(v) => Ref(f(v)),
+            Glb(v) => Glb(f(v)),
             Emp => Emp,
         }
     }
@@ -109,11 +118,12 @@ impl std::fmt::Debug for Operand {
         use Operand::*;
 
         match self {
-            Loc(v) => write!(f, "loc({:#X?})", v),
-            Ind(v) => write!(f, "ind({:#X?})", v),
-            Ret(v) => write!(f, "ret({:#X?})", v),
-            Val(v) => write!(f, "val({:#X?})", v),
-            Ref(v) => write!(f, "ref({:#X?})", v),
+            Loc(v) => write!(f, "loc({:?})", v),
+            Ind(v) => write!(f, "ind({:?})", v),
+            Ret(v) => write!(f, "ret({:?})", v),
+            Val(v) => write!(f, "val({:?})", v),
+            Ref(v) => write!(f, "ref({:?})", v),
+            Glb(v) => write!(f, "glb({:?})", v),
             Emp => write!(f, "emp"),
         }
     }

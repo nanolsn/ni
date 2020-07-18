@@ -468,6 +468,55 @@ fn executor_call_fn() {
 }
 
 #[test]
+fn executor_glb() {
+    let functions = [
+        Function {
+            frame_size: 0,
+            program: &[
+                Op::Set(BinOp::new(Operand::Glb(2), Operand::Val(12)), OpType::U16),
+                Op::App(Operand::Val(1)),
+                Op::Par(
+                    UnOp::new(Operand::Val(6)),
+                    OpType::U16,
+                    ParameterMode::default(),
+                ),
+                Op::Clf(Operand::Val(0)),
+                Op::Ret,
+            ],
+        },
+        Function {
+            frame_size: 2,
+            program: &[
+                Op::Inc(UnOp::new(Operand::Loc(0)), OpType::U16, ArithmeticMode::default()),
+                Op::Set(BinOp::new(Operand::Glb(0), Operand::Loc(0)), OpType::U16),
+                Op::Ret,
+            ],
+        },
+    ];
+
+    let mut exe = Executor::new(&functions);
+    exe.memory.stack.expand(8).unwrap();
+    exe.call(0, 0).unwrap();
+
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.call_stack.len(), 2);
+    assert_eq!(exe.get_val::<u16>(Operand::Glb(2)), Ok(12));
+
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.call_stack.len(), 1);
+    assert_eq!(exe.get_val::<u16>(Operand::Glb(0)), Ok(7));
+
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert!(exe.call_stack.is_empty());
+    assert_eq!(exe.memory.stack.len(), 8);
+}
+
+#[test]
 fn executor_gcd() {
     let functions = [
         Function {

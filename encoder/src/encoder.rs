@@ -403,7 +403,7 @@ mod tests {
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();
 
-        assert_eq!(buf, &[END, 0b0101_0000]);
+        assert_eq!(buf, &[END, 0b0110_0000]);
     }
 
     #[test]
