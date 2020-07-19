@@ -433,7 +433,7 @@ fn executor_call_fn() {
                     ParameterMode::default(),
                 ),
                 Op::Clf(Operand::Val(0)),
-                Op::Ret,
+                Op::Ret(UnOp::new(Operand::Emp), OpType::U8),
             ],
         },
         Function {
@@ -450,7 +450,7 @@ fn executor_call_fn() {
                     OpType::I32,
                     ArithmeticMode::default(),
                 ),
-                Op::Ret,
+                Op::Ret(UnOp::new(Operand::Emp), OpType::U8),
             ],
         },
     ];
@@ -489,7 +489,7 @@ fn executor_glb() {
                     ParameterMode::default(),
                 ),
                 Op::Clf(Operand::Val(0)),
-                Op::Ret,
+                Op::Ret(UnOp::new(Operand::Emp), OpType::U8),
             ],
         },
         Function {
@@ -497,7 +497,7 @@ fn executor_glb() {
             program: &[
                 Op::Inc(UnOp::new(Operand::Loc(0)), OpType::U16, ArithmeticMode::default()),
                 Op::Set(BinOp::new(Operand::Glb(0), Operand::Loc(0)), OpType::U16),
-                Op::Ret,
+                Op::Ret(UnOp::new(Operand::Emp), OpType::U8),
             ],
         },
     ];
@@ -577,10 +577,8 @@ fn executor_gcd() {
                 Op::Ift(UnOp::new(Operand::Loc(4)), OpType::U32),
                 // go loop
                 Op::Go(Operand::Val(0)),
-                // set ^ a
-                Op::Set(BinOp::new(Operand::Ret(0), Operand::Loc(0)), OpType::U32),
-                // ret
-                Op::Ret,
+                // ret a
+                Op::Ret(UnOp::new(Operand::Loc(0)), OpType::U32),
             ],
         },
     ];

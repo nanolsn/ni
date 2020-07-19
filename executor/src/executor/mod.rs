@@ -26,7 +26,7 @@ pub enum ExecutionError {
     EndOfProgram,
     MemoryError(MemoryError),
     IncorrectOperation(Op),
-    UnknownFunction,
+    UnknownFunction(UWord),
     OperationOverflow,
     DivisionByZero,
     NullPointerDereference,
@@ -162,7 +162,7 @@ impl<'f> Executor<'f> {
     fn app(&mut self, function_id: UWord) -> Result<(), ExecutionError> {
         let f = self.functions
             .get(function_id as usize)
-            .ok_or(ExecutionError::UnknownFunction)?;
+            .ok_or(ExecutionError::UnknownFunction(function_id))?;
 
         self.call_stack.push(FunctionCall {
             function: f,
@@ -255,7 +255,7 @@ impl<'f> Executor<'f> {
             Operand::Ref(var) => T::from_word(
                 self.current_call()?.base_ptr.wrapping_add(var)
             ),
-            Operand::Glb(var) => self.memory.get(var)?,
+            Operand::Glb(ptr) => self.memory.get(ptr)?,
             Operand::Emp => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
         })
     }
@@ -283,7 +283,7 @@ impl<'f> Executor<'f> {
             )?,
             Operand::Val(_) => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
             Operand::Ref(_) => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
-            Operand::Glb(var) => self.memory.set(var, val)?,
+            Operand::Glb(ptr) => self.memory.set(ptr, val)?,
             Operand::Emp => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
         })
     }
@@ -554,6 +554,14 @@ impl<'f> Executor<'f> {
         }
 
         Ok(())
+    }
+
+    fn set_ret<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
+        where
+            T: Primary,
+    {
+        let right = self.read_un_operand(un)?;
+        self.set_val::<T>(Operand::Ret(0), self.get_val(right)?)
     }
 
     pub fn execute(&mut self) -> Executed {
@@ -910,20 +918,20 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ife(bo, ot) => {
+            Ife(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ife::<u8>(bo)?,
-                    I8 => self.exec_ife::<i8>(bo)?,
-                    U16 => self.exec_ife::<u16>(bo)?,
-                    I16 => self.exec_ife::<i16>(bo)?,
-                    U32 => self.exec_ife::<u32>(bo)?,
-                    I32 => self.exec_ife::<i32>(bo)?,
-                    U64 => self.exec_ife::<u64>(bo)?,
-                    I64 => self.exec_ife::<i64>(bo)?,
-                    Uw => self.exec_ife::<UWord>(bo)?,
-                    Iw => self.exec_ife::<IWord>(bo)?,
-                    F32 => self.exec_ife::<f32>(bo)?,
-                    F64 => self.exec_ife::<f64>(bo)?,
+                    U8 => self.exec_ife::<u8>(bin)?,
+                    I8 => self.exec_ife::<i8>(bin)?,
+                    U16 => self.exec_ife::<u16>(bin)?,
+                    I16 => self.exec_ife::<i16>(bin)?,
+                    U32 => self.exec_ife::<u32>(bin)?,
+                    I32 => self.exec_ife::<i32>(bin)?,
+                    U64 => self.exec_ife::<u64>(bin)?,
+                    I64 => self.exec_ife::<i64>(bin)?,
+                    Uw => self.exec_ife::<UWord>(bin)?,
+                    Iw => self.exec_ife::<IWord>(bin)?,
+                    F32 => self.exec_ife::<f32>(bin)?,
+                    F64 => self.exec_ife::<f64>(bin)?,
                 };
 
                 if res {
@@ -933,20 +941,20 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ifl(bo, ot) => {
+            Ifl(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ifl::<u8>(bo)?,
-                    I8 => self.exec_ifl::<i8>(bo)?,
-                    U16 => self.exec_ifl::<u16>(bo)?,
-                    I16 => self.exec_ifl::<i16>(bo)?,
-                    U32 => self.exec_ifl::<u32>(bo)?,
-                    I32 => self.exec_ifl::<i32>(bo)?,
-                    U64 => self.exec_ifl::<u64>(bo)?,
-                    I64 => self.exec_ifl::<i64>(bo)?,
-                    Uw => self.exec_ifl::<UWord>(bo)?,
-                    Iw => self.exec_ifl::<IWord>(bo)?,
-                    F32 => self.exec_ifl::<f32>(bo)?,
-                    F64 => self.exec_ifl::<f64>(bo)?,
+                    U8 => self.exec_ifl::<u8>(bin)?,
+                    I8 => self.exec_ifl::<i8>(bin)?,
+                    U16 => self.exec_ifl::<u16>(bin)?,
+                    I16 => self.exec_ifl::<i16>(bin)?,
+                    U32 => self.exec_ifl::<u32>(bin)?,
+                    I32 => self.exec_ifl::<i32>(bin)?,
+                    U64 => self.exec_ifl::<u64>(bin)?,
+                    I64 => self.exec_ifl::<i64>(bin)?,
+                    Uw => self.exec_ifl::<UWord>(bin)?,
+                    Iw => self.exec_ifl::<IWord>(bin)?,
+                    F32 => self.exec_ifl::<f32>(bin)?,
+                    F64 => self.exec_ifl::<f64>(bin)?,
                 };
 
                 if res {
@@ -956,20 +964,20 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ifg(bo, ot) => {
+            Ifg(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ifg::<u8>(bo)?,
-                    I8 => self.exec_ifg::<i8>(bo)?,
-                    U16 => self.exec_ifg::<u16>(bo)?,
-                    I16 => self.exec_ifg::<i16>(bo)?,
-                    U32 => self.exec_ifg::<u32>(bo)?,
-                    I32 => self.exec_ifg::<i32>(bo)?,
-                    U64 => self.exec_ifg::<u64>(bo)?,
-                    I64 => self.exec_ifg::<i64>(bo)?,
-                    Uw => self.exec_ifg::<UWord>(bo)?,
-                    Iw => self.exec_ifg::<IWord>(bo)?,
-                    F32 => self.exec_ifg::<f32>(bo)?,
-                    F64 => self.exec_ifg::<f64>(bo)?,
+                    U8 => self.exec_ifg::<u8>(bin)?,
+                    I8 => self.exec_ifg::<i8>(bin)?,
+                    U16 => self.exec_ifg::<u16>(bin)?,
+                    I16 => self.exec_ifg::<i16>(bin)?,
+                    U32 => self.exec_ifg::<u32>(bin)?,
+                    I32 => self.exec_ifg::<i32>(bin)?,
+                    U64 => self.exec_ifg::<u64>(bin)?,
+                    I64 => self.exec_ifg::<i64>(bin)?,
+                    Uw => self.exec_ifg::<UWord>(bin)?,
+                    Iw => self.exec_ifg::<IWord>(bin)?,
+                    F32 => self.exec_ifg::<f32>(bin)?,
+                    F64 => self.exec_ifg::<f64>(bin)?,
                 };
 
                 if res {
@@ -979,20 +987,20 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ine(bo, ot) => {
+            Ine(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ine::<u8>(bo)?,
-                    I8 => self.exec_ine::<i8>(bo)?,
-                    U16 => self.exec_ine::<u16>(bo)?,
-                    I16 => self.exec_ine::<i16>(bo)?,
-                    U32 => self.exec_ine::<u32>(bo)?,
-                    I32 => self.exec_ine::<i32>(bo)?,
-                    U64 => self.exec_ine::<u64>(bo)?,
-                    I64 => self.exec_ine::<i64>(bo)?,
-                    Uw => self.exec_ine::<UWord>(bo)?,
-                    Iw => self.exec_ine::<IWord>(bo)?,
-                    F32 => self.exec_ine::<f32>(bo)?,
-                    F64 => self.exec_ine::<f64>(bo)?,
+                    U8 => self.exec_ine::<u8>(bin)?,
+                    I8 => self.exec_ine::<i8>(bin)?,
+                    U16 => self.exec_ine::<u16>(bin)?,
+                    I16 => self.exec_ine::<i16>(bin)?,
+                    U32 => self.exec_ine::<u32>(bin)?,
+                    I32 => self.exec_ine::<i32>(bin)?,
+                    U64 => self.exec_ine::<u64>(bin)?,
+                    I64 => self.exec_ine::<i64>(bin)?,
+                    Uw => self.exec_ine::<UWord>(bin)?,
+                    Iw => self.exec_ine::<IWord>(bin)?,
+                    F32 => self.exec_ine::<f32>(bin)?,
+                    F64 => self.exec_ine::<f64>(bin)?,
                 };
 
                 if res {
@@ -1002,20 +1010,20 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Inl(bo, ot) => {
+            Inl(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_inl::<u8>(bo)?,
-                    I8 => self.exec_inl::<i8>(bo)?,
-                    U16 => self.exec_inl::<u16>(bo)?,
-                    I16 => self.exec_inl::<i16>(bo)?,
-                    U32 => self.exec_inl::<u32>(bo)?,
-                    I32 => self.exec_inl::<i32>(bo)?,
-                    U64 => self.exec_inl::<u64>(bo)?,
-                    I64 => self.exec_inl::<i64>(bo)?,
-                    Uw => self.exec_inl::<UWord>(bo)?,
-                    Iw => self.exec_inl::<IWord>(bo)?,
-                    F32 => self.exec_inl::<f32>(bo)?,
-                    F64 => self.exec_inl::<f64>(bo)?,
+                    U8 => self.exec_inl::<u8>(bin)?,
+                    I8 => self.exec_inl::<i8>(bin)?,
+                    U16 => self.exec_inl::<u16>(bin)?,
+                    I16 => self.exec_inl::<i16>(bin)?,
+                    U32 => self.exec_inl::<u32>(bin)?,
+                    I32 => self.exec_inl::<i32>(bin)?,
+                    U64 => self.exec_inl::<u64>(bin)?,
+                    I64 => self.exec_inl::<i64>(bin)?,
+                    Uw => self.exec_inl::<UWord>(bin)?,
+                    Iw => self.exec_inl::<IWord>(bin)?,
+                    F32 => self.exec_inl::<f32>(bin)?,
+                    F64 => self.exec_inl::<f64>(bin)?,
                 };
 
                 if res {
@@ -1025,20 +1033,20 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ing(bo, ot) => {
+            Ing(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ing::<u8>(bo)?,
-                    I8 => self.exec_ing::<i8>(bo)?,
-                    U16 => self.exec_ing::<u16>(bo)?,
-                    I16 => self.exec_ing::<i16>(bo)?,
-                    U32 => self.exec_ing::<u32>(bo)?,
-                    I32 => self.exec_ing::<i32>(bo)?,
-                    U64 => self.exec_ing::<u64>(bo)?,
-                    I64 => self.exec_ing::<i64>(bo)?,
-                    Uw => self.exec_ing::<UWord>(bo)?,
-                    Iw => self.exec_ing::<IWord>(bo)?,
-                    F32 => self.exec_ing::<f32>(bo)?,
-                    F64 => self.exec_ing::<f64>(bo)?,
+                    U8 => self.exec_ing::<u8>(bin)?,
+                    I8 => self.exec_ing::<i8>(bin)?,
+                    U16 => self.exec_ing::<u16>(bin)?,
+                    I16 => self.exec_ing::<i16>(bin)?,
+                    U32 => self.exec_ing::<u32>(bin)?,
+                    I32 => self.exec_ing::<i32>(bin)?,
+                    U64 => self.exec_ing::<u64>(bin)?,
+                    I64 => self.exec_ing::<i64>(bin)?,
+                    Uw => self.exec_ing::<UWord>(bin)?,
+                    Iw => self.exec_ing::<IWord>(bin)?,
+                    F32 => self.exec_ing::<f32>(bin)?,
+                    F64 => self.exec_ing::<f64>(bin)?,
                 };
 
                 if res {
@@ -1048,18 +1056,18 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ifa(bo, ot) => {
+            Ifa(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ifa::<u8>(bo)?,
-                    I8 => self.exec_ifa::<i8>(bo)?,
-                    U16 => self.exec_ifa::<u16>(bo)?,
-                    I16 => self.exec_ifa::<i16>(bo)?,
-                    U32 => self.exec_ifa::<u32>(bo)?,
-                    I32 => self.exec_ifa::<i32>(bo)?,
-                    U64 => self.exec_ifa::<u64>(bo)?,
-                    I64 => self.exec_ifa::<i64>(bo)?,
-                    Uw => self.exec_ifa::<UWord>(bo)?,
-                    Iw => self.exec_ifa::<IWord>(bo)?,
+                    U8 => self.exec_ifa::<u8>(bin)?,
+                    I8 => self.exec_ifa::<i8>(bin)?,
+                    U16 => self.exec_ifa::<u16>(bin)?,
+                    I16 => self.exec_ifa::<i16>(bin)?,
+                    U32 => self.exec_ifa::<u32>(bin)?,
+                    I32 => self.exec_ifa::<i32>(bin)?,
+                    U64 => self.exec_ifa::<u64>(bin)?,
+                    I64 => self.exec_ifa::<i64>(bin)?,
+                    Uw => self.exec_ifa::<UWord>(bin)?,
+                    Iw => self.exec_ifa::<IWord>(bin)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1071,18 +1079,18 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ifo(bo, ot) => {
+            Ifo(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ifo::<u8>(bo)?,
-                    I8 => self.exec_ifo::<i8>(bo)?,
-                    U16 => self.exec_ifo::<u16>(bo)?,
-                    I16 => self.exec_ifo::<i16>(bo)?,
-                    U32 => self.exec_ifo::<u32>(bo)?,
-                    I32 => self.exec_ifo::<i32>(bo)?,
-                    U64 => self.exec_ifo::<u64>(bo)?,
-                    I64 => self.exec_ifo::<i64>(bo)?,
-                    Uw => self.exec_ifo::<UWord>(bo)?,
-                    Iw => self.exec_ifo::<IWord>(bo)?,
+                    U8 => self.exec_ifo::<u8>(bin)?,
+                    I8 => self.exec_ifo::<i8>(bin)?,
+                    U16 => self.exec_ifo::<u16>(bin)?,
+                    I16 => self.exec_ifo::<i16>(bin)?,
+                    U32 => self.exec_ifo::<u32>(bin)?,
+                    I32 => self.exec_ifo::<i32>(bin)?,
+                    U64 => self.exec_ifo::<u64>(bin)?,
+                    I64 => self.exec_ifo::<i64>(bin)?,
+                    Uw => self.exec_ifo::<UWord>(bin)?,
+                    Iw => self.exec_ifo::<IWord>(bin)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1094,18 +1102,18 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ifx(bo, ot) => {
+            Ifx(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ifx::<u8>(bo)?,
-                    I8 => self.exec_ifx::<i8>(bo)?,
-                    U16 => self.exec_ifx::<u16>(bo)?,
-                    I16 => self.exec_ifx::<i16>(bo)?,
-                    U32 => self.exec_ifx::<u32>(bo)?,
-                    I32 => self.exec_ifx::<i32>(bo)?,
-                    U64 => self.exec_ifx::<u64>(bo)?,
-                    I64 => self.exec_ifx::<i64>(bo)?,
-                    Uw => self.exec_ifx::<UWord>(bo)?,
-                    Iw => self.exec_ifx::<IWord>(bo)?,
+                    U8 => self.exec_ifx::<u8>(bin)?,
+                    I8 => self.exec_ifx::<i8>(bin)?,
+                    U16 => self.exec_ifx::<u16>(bin)?,
+                    I16 => self.exec_ifx::<i16>(bin)?,
+                    U32 => self.exec_ifx::<u32>(bin)?,
+                    I32 => self.exec_ifx::<i32>(bin)?,
+                    U64 => self.exec_ifx::<u64>(bin)?,
+                    I64 => self.exec_ifx::<i64>(bin)?,
+                    Uw => self.exec_ifx::<UWord>(bin)?,
+                    Iw => self.exec_ifx::<IWord>(bin)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1117,18 +1125,18 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ina(bo, ot) => {
+            Ina(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ina::<u8>(bo)?,
-                    I8 => self.exec_ina::<i8>(bo)?,
-                    U16 => self.exec_ina::<u16>(bo)?,
-                    I16 => self.exec_ina::<i16>(bo)?,
-                    U32 => self.exec_ina::<u32>(bo)?,
-                    I32 => self.exec_ina::<i32>(bo)?,
-                    U64 => self.exec_ina::<u64>(bo)?,
-                    I64 => self.exec_ina::<i64>(bo)?,
-                    Uw => self.exec_ina::<UWord>(bo)?,
-                    Iw => self.exec_ina::<IWord>(bo)?,
+                    U8 => self.exec_ina::<u8>(bin)?,
+                    I8 => self.exec_ina::<i8>(bin)?,
+                    U16 => self.exec_ina::<u16>(bin)?,
+                    I16 => self.exec_ina::<i16>(bin)?,
+                    U32 => self.exec_ina::<u32>(bin)?,
+                    I32 => self.exec_ina::<i32>(bin)?,
+                    U64 => self.exec_ina::<u64>(bin)?,
+                    I64 => self.exec_ina::<i64>(bin)?,
+                    Uw => self.exec_ina::<UWord>(bin)?,
+                    Iw => self.exec_ina::<IWord>(bin)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1140,18 +1148,18 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Ino(bo, ot) => {
+            Ino(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_ino::<u8>(bo)?,
-                    I8 => self.exec_ino::<i8>(bo)?,
-                    U16 => self.exec_ino::<u16>(bo)?,
-                    I16 => self.exec_ino::<i16>(bo)?,
-                    U32 => self.exec_ino::<u32>(bo)?,
-                    I32 => self.exec_ino::<i32>(bo)?,
-                    U64 => self.exec_ino::<u64>(bo)?,
-                    I64 => self.exec_ino::<i64>(bo)?,
-                    Uw => self.exec_ino::<UWord>(bo)?,
-                    Iw => self.exec_ino::<IWord>(bo)?,
+                    U8 => self.exec_ino::<u8>(bin)?,
+                    I8 => self.exec_ino::<i8>(bin)?,
+                    U16 => self.exec_ino::<u16>(bin)?,
+                    I16 => self.exec_ino::<i16>(bin)?,
+                    U32 => self.exec_ino::<u32>(bin)?,
+                    I32 => self.exec_ino::<i32>(bin)?,
+                    U64 => self.exec_ino::<u64>(bin)?,
+                    I64 => self.exec_ino::<i64>(bin)?,
+                    Uw => self.exec_ino::<UWord>(bin)?,
+                    Iw => self.exec_ino::<IWord>(bin)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1163,18 +1171,18 @@ impl<'f> Executor<'f> {
                     return Ok(ExecutionSuccess::Ok);
                 }
             }
-            Inx(bo, ot) => {
+            Inx(bin, ot) => {
                 let res = match ot {
-                    U8 => self.exec_inx::<u8>(bo)?,
-                    I8 => self.exec_inx::<i8>(bo)?,
-                    U16 => self.exec_inx::<u16>(bo)?,
-                    I16 => self.exec_inx::<i16>(bo)?,
-                    U32 => self.exec_inx::<u32>(bo)?,
-                    I32 => self.exec_inx::<i32>(bo)?,
-                    U64 => self.exec_inx::<u64>(bo)?,
-                    I64 => self.exec_inx::<i64>(bo)?,
-                    Uw => self.exec_inx::<UWord>(bo)?,
-                    Iw => self.exec_inx::<IWord>(bo)?,
+                    U8 => self.exec_inx::<u8>(bin)?,
+                    I8 => self.exec_inx::<i8>(bin)?,
+                    U16 => self.exec_inx::<u16>(bin)?,
+                    I16 => self.exec_inx::<i16>(bin)?,
+                    U32 => self.exec_inx::<u32>(bin)?,
+                    I32 => self.exec_inx::<i32>(bin)?,
+                    U64 => self.exec_inx::<u64>(bin)?,
+                    I64 => self.exec_inx::<i64>(bin)?,
+                    Uw => self.exec_inx::<UWord>(bin)?,
+                    Iw => self.exec_inx::<IWord>(bin)?,
                     F32 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                     F64 => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
                 };
@@ -1212,7 +1220,24 @@ impl<'f> Executor<'f> {
                 self.clf(self.get_val(x)?)?;
                 return Ok(ExecutionSuccess::Ok);
             }
-            Ret => {
+            Ret(un, ot) => {
+                if un.x != Operand::Emp {
+                    match ot {
+                        U8 => self.set_ret::<u8>(un)?,
+                        I8 => self.set_ret::<i8>(un)?,
+                        U16 => self.set_ret::<u16>(un)?,
+                        I16 => self.set_ret::<i16>(un)?,
+                        U32 => self.set_ret::<u32>(un)?,
+                        I32 => self.set_ret::<i32>(un)?,
+                        U64 => self.set_ret::<u64>(un)?,
+                        I64 => self.set_ret::<i64>(un)?,
+                        Uw => self.set_ret::<UWord>(un)?,
+                        Iw => self.set_ret::<IWord>(un)?,
+                        F32 => self.set_ret::<f32>(un)?,
+                        F64 => self.set_ret::<f64>(un)?,
+                    }
+                }
+
                 self.ret()?;
                 return Ok(ExecutionSuccess::Ok);
             }

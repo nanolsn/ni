@@ -258,7 +258,7 @@ pub enum Op {
     App(Operand),
     Par(UnOp, OpType, ParameterMode),
     Clf(Operand),
-    Ret,
+    Ret(UnOp, OpType),
 }
 
 impl Op {
@@ -266,11 +266,11 @@ impl Op {
         use Op::*;
 
         match self {
-            Ift(_, _) | Iff(_, _)
-            | Ife(_, _) | Ifl(_, _) | Ifg(_, _)
-            | Ine(_, _) | Inl(_, _) | Ing(_, _)
-            | Ifa(_, _) | Ifo(_, _) | Ifx(_, _)
-            | Ina(_, _) | Ino(_, _) | Inx(_, _) => true,
+            Ift(..) | Iff(..)
+            | Ife(..) | Ifl(..) | Ifg(..)
+            | Ine(..) | Inl(..) | Ing(..)
+            | Ifa(..) | Ifo(..) | Ifx(..)
+            | Ina(..) | Ino(..) | Inx(..) => true,
             _ => false,
         }
     }
@@ -317,7 +317,7 @@ impl Op {
             App(..) => APP,
             Par(..) => PAR,
             Clf(..) => CLF,
-            Ret => RET,
+            Ret(..) => RET,
         }
     }
 }
@@ -364,7 +364,7 @@ impl std::fmt::Debug for Op {
             App(x) => write!(f, "app {:?}", x),
             Par(u, t, m) => write!(f, "par {:?} {:?} {:?}", m, t, u),
             Clf(x) => write!(f, "clf {:?}", x),
-            Ret => write!(f, "ret"),
+            Ret(u, t) => write!(f, "ret {:?} {:?}", t, u),
         }
     }
 }

@@ -175,7 +175,10 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             CLF.encode(buf)?;
             x.encode(buf)
         }
-        Ret => RET.encode(buf),
+        Ret(u, t) => {
+            RET.encode(buf)?;
+            (u, t).encode(buf)
+        }
     }
 }
 
@@ -502,5 +505,15 @@ mod tests {
         encode_op(op, &mut buf).unwrap();
 
         assert_eq!(buf, &[PAR, 0b0101_1011, 0b1100_0000, 8, 0b1011_0000, 6]);
+    }
+
+    #[test]
+    fn encode_ret() {
+        let op = Op::Ret(UnOp::new(Operand::Loc(16)), OpType::U8);
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[RET, 0b0000_0000, 16]);
     }
 }

@@ -194,6 +194,12 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Par(un_op, op_type, mode.into_parameter()?)
         }
         CLF => Clf(decode(bytes)?),
+        RET => {
+            let (op_type, _, var) = decode(bytes)?;
+            let un_op = decode_with(bytes, var)?;
+
+            Ret(un_op, op_type)
+        }
         _ => return Err(DecodeError::UnknownOpCode),
     };
 
@@ -657,6 +663,22 @@ mod tests {
             OpType::F32,
             ParameterMode::Emp,
         );
+
+        let mut code = code.as_ref();
+        let actual = decode_op(&mut code).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(code.is_empty());
+    }
+
+    #[test]
+    fn decode_ret() {
+        let code = [
+            // ret u8 loc(16)
+            RET, 0b0000_0000, 16,
+        ];
+
+        let expected = Op::Ret(UnOp::new(Operand::Loc(16)), OpType::U8);
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();
