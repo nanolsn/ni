@@ -179,19 +179,15 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             RET.encode(buf)?;
             (u, t).encode(buf)
         }
-        In(u) => {
+        In(b) => {
             IN.encode(buf)?;
-            (u, OpType::U8, Mode(0)).encode(buf)
+            (b, OpType::U8, Mode(0)).encode(buf)
         }
         Out(u) => {
             OUT.encode(buf)?;
             (u, OpType::U8, Mode(0)).encode(buf)
         }
         Fls => FLS.encode(buf),
-        Eof(x) => {
-            EOF.encode(buf)?;
-            x.encode(buf)
-        }
     }
 }
 
@@ -532,12 +528,25 @@ mod tests {
 
     #[test]
     fn encode_in() {
-        let op = Op::In(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(1)));
+        let op = Op::In(BinOp::new(Operand::Loc(0), Operand::Loc(2))
+            .with_x_offset(Operand::Loc(1))
+            .with_y_offset(Operand::Loc(3))
+        );
 
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();
 
-        assert_eq!(buf, &[IN, 0b0100_0000, 0, 1]);
+        assert_eq!(buf, &[IN, 0b1100_0000, 0, 2, 1, 3]);
+    }
+
+    #[test]
+    fn encode_out() {
+        let op = Op::Out(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(1)));
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[OUT, 0b0100_0000, 0, 1]);
     }
 
     #[test]

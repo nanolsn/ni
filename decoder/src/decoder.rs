@@ -202,9 +202,9 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
         }
         IN => {
             let (_, _, var): (OpType, Mode, Variant) = decode(bytes)?;
-            let un_op = decode_with(bytes, var)?;
+            let bin_op = decode_with(bytes, var)?;
 
-            In(un_op)
+            In(bin_op)
         }
         OUT => {
             let (_, _, var): (OpType, Mode, Variant) = decode(bytes)?;
@@ -213,7 +213,6 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Out(un_op)
         }
         FLS => Fls,
-        EOF => Eof(decode(bytes)?),
         _ => return Err(DecodeError::UnknownOpCode),
     };
 
@@ -704,11 +703,30 @@ mod tests {
     #[test]
     fn decode_in() {
         let code = [
-            // in loc(0){loc(1)}
-            IN, 0b0100_0000, 0, 1,
+            // in loc(0){loc(1)} loc(2){loc(3)}
+            IN, 0b1100_0000, 0, 2, 1, 3
         ];
 
-        let expected = Op::In(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(1)));
+        let expected = Op::In(BinOp::new(Operand::Loc(0), Operand::Loc(2))
+            .with_x_offset(Operand::Loc(1))
+            .with_y_offset(Operand::Loc(3))
+        );
+
+        let mut code = code.as_ref();
+        let actual = decode_op(&mut code).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(code.is_empty());
+    }
+
+    #[test]
+    fn decode_out() {
+        let code = [
+            // out loc(0){loc(1)}
+            OUT, 0b0100_0000, 0, 1
+        ];
+
+        let expected = Op::Out(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(1)));
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();

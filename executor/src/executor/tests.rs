@@ -597,8 +597,6 @@ fn executor_gcd() {
 
 #[test]
 fn executor_hello() {
-    use super::super::files::File;
-
     let functions = [
         Function {
             frame_size: 6 + std::mem::size_of::<UWord>() as UWord,
@@ -651,4 +649,52 @@ fn executor_hello() {
 
     let hello = String::from_utf8_lossy(slice);
     assert_eq!(hello, "Hello!");
+}
+
+#[test]
+fn executor_mul_from_in() {
+    use std::collections::vec_deque::VecDeque;
+
+    let functions = [
+        Function {
+            frame_size: 3 + std::mem::size_of::<UWord>() as UWord,
+            program: &[
+                // u8 a
+                // u8 b
+                // u8 eof
+                // uw res
+                // in a
+                Op::In(BinOp::new(Operand::Loc(0), Operand::Emp)),
+                // in b eof
+                Op::In(BinOp::new(Operand::Loc(1), Operand::Loc(2))),
+                // set res a
+                Op::Set(BinOp::new(Operand::Loc(3), Operand::Loc(0)), OpType::U8),
+                // mul res b
+                Op::Mul(
+                    BinOp::new(Operand::Loc(3), Operand::Loc(1)),
+                    OpType::U8,
+                    ArithmeticMode::default(),
+                ),
+                // end
+                Op::End(Operand::Loc(3)),
+            ],
+        }
+    ];
+
+    let mut exe = Executor::new(&functions);
+    let mut file: VecDeque<u8> = VecDeque::new();
+    file.push_back(3);
+    file.push_back(4);
+
+    assert_eq!(exe.files.open(file), Ok(0));
+    exe.files.set_current(0).unwrap();
+    exe.call(0, 0).unwrap();
+
+    let mut executed = Executed::Ok(ExecutionSuccess::Ok);
+    while let Executed::Ok(ExecutionSuccess::Ok) = executed {
+        executed = exe.execute();
+    };
+
+    assert_eq!(executed, Executed::Ok(ExecutionSuccess::End(3 * 4)));
+    assert_eq!(exe.get_val::<u8>(Operand::Loc(2)), Ok(1));
 }

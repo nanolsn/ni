@@ -63,7 +63,6 @@ pub struct Files {
     files: Vec<Option<Box<dyn File>>>,
     count: usize,
     current: Option<(usize, Box<dyn File>)>,
-    eof: bool,
 }
 
 impl Files {
@@ -74,7 +73,6 @@ impl Files {
             files: Vec::new(),
             count: 0,
             current: None,
-            eof: false,
         }
     }
 
@@ -163,17 +161,10 @@ impl Files {
         Ok(Box::as_mut(file) as &mut dyn File)
     }
 
-    pub fn read(&mut self) -> Result<u8, FilesError> {
+    pub fn read(&mut self) -> Result<Option<u8>, FilesError> {
         let file = self.get_mut()?;
         let val = file.read()?;
-
-        if let Some(val) = val {
-            self.eof = false;
-            Ok(val)
-        } else {
-            self.eof = true;
-            Ok(0)
-        }
+        Ok(val)
     }
 
     pub fn write(&mut self, val: u8) -> Result<(), FilesError> {
@@ -187,8 +178,6 @@ impl Files {
         file.flush()?;
         Ok(())
     }
-
-    pub fn eof(&self) -> bool { self.eof }
 }
 
 #[cfg(test)]

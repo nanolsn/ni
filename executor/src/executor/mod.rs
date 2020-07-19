@@ -1252,9 +1252,16 @@ impl<'f> Executor<'f> {
                 self.ret()?;
                 return Ok(ExecutionSuccess::Ok);
             }
-            In(un) => {
+            In(bin) => {
                 let val = self.files.read()?;
-                self.set_val(self.read_un_operand(un)?, val)?;
+                let (left, right) = self.read_bin_operands(bin)?;
+
+                match right {
+                    Operand::Emp => (),
+                    _ => self.set_val::<u8>(right, if val.is_some() { 1 } else { 0 })?,
+                }
+
+                self.set_val(left, val.unwrap_or(0))?;
                 Ok(ExecutionSuccess::Ok)
             }
             Out(un) => {
@@ -1264,11 +1271,6 @@ impl<'f> Executor<'f> {
             }
             Fls => {
                 self.files.flush()?;
-                Ok(ExecutionSuccess::Ok)
-            }
-            Eof(x) => {
-                let val = if self.files.eof() { 1 } else { 0 };
-                self.set_val::<u8>(x, val)?;
                 Ok(ExecutionSuccess::Ok)
             }
         };
