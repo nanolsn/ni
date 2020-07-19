@@ -1266,6 +1266,11 @@ impl<'f> Executor<'f> {
                 self.files.flush()?;
                 Ok(ExecutionSuccess::Ok)
             }
+            Eof(x) => {
+                let val = if self.files.eof() { 1 } else { 0 };
+                self.set_val::<u8>(x, val)?;
+                Ok(ExecutionSuccess::Ok)
+            }
         };
 
         if res.is_ok() {

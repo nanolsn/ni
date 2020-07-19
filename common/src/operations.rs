@@ -262,6 +262,7 @@ pub enum Op {
     In(UnOp),
     Out(UnOp),
     Fls,
+    Eof(Operand),
 }
 
 impl Op {
@@ -324,6 +325,7 @@ impl Op {
             In(..) => IN,
             Out(..) => OUT,
             Fls => FLS,
+            Eof(..) => EOF,
         }
     }
 }
@@ -374,6 +376,7 @@ impl std::fmt::Debug for Op {
             In(u) => write!(f, "in  {:?}", u),
             Out(u) => write!(f, "out {:?}", u),
             Fls => write!(f, "fls"),
+            Eof(x) => write!(f, "eof {:?}", x),
         }
     }
 }

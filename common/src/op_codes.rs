@@ -121,14 +121,17 @@ pub const OUT: u8 = 0x27;
 /// Flush.
 pub const FLS: u8 = 0x28;
 
+/// End of file.
+pub const EOF: u8 = 0x29;
+
 /// Open file.
-pub const OPN: u8 = 0x29;
+pub const OPN: u8 = 0x2A;
 
 /// Close file.
-pub const CLS: u8 = 0x2A;
+pub const CLS: u8 = 0x2B;
 
 /// Set file descriptor.
-pub const SFD: u8 = 0x2B;
+pub const SFD: u8 = 0x2C;
 
 /// Get file descriptor.
-pub const GFD: u8 = 0x2C;
+pub const GFD: u8 = 0x2D;

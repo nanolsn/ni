@@ -188,6 +188,10 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             (u, OpType::U8, Mode(0)).encode(buf)
         }
         Fls => FLS.encode(buf),
+        Eof(x) => {
+            EOF.encode(buf)?;
+            x.encode(buf)
+        }
     }
 }
 

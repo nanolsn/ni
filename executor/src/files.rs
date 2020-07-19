@@ -1,4 +1,7 @@
-use std::{rc::Rc, any::Any};
+use std::{
+    any::Any,
+    collections::vec_deque::VecDeque,
+};
 
 use common::UWord;
 
@@ -8,38 +11,37 @@ pub enum FileError {
     WritingNotAvailable,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum FileMode {
-    Read,
-    Write,
-}
-
 pub trait File: std::fmt::Debug {
-    fn read(&mut self) -> Result<u8, FileError>;
+    fn read(&mut self) -> Result<Option<u8>, FileError>;
 
     fn write(&mut self, val: u8) -> Result<(), FileError>;
 
-    fn flush(&mut self) -> Result<(), FileError>;
-
-    fn get_mode(&self) -> FileMode;
+    fn flush(&mut self) -> Result<(), FileError> { Ok(()) }
 
     fn as_any(&self) -> &dyn Any;
 }
 
 impl File for Vec<u8> {
-    fn read(&mut self) -> Result<u8, FileError> {
-        // TODO: impl
-        Err(FileError::ReadingNotAvailable)
-    }
+    fn read(&mut self) -> Result<Option<u8>, FileError> { Err(FileError::ReadingNotAvailable) }
 
     fn write(&mut self, val: u8) -> Result<(), FileError> {
         self.push(val);
         Ok(())
     }
 
-    fn flush(&mut self) -> Result<(), FileError> { Ok(()) }
+    fn as_any(&self) -> &dyn Any { self }
+}
 
-    fn get_mode(&self) -> FileMode { FileMode::Write }
+impl File for VecDeque<u8> {
+    fn read(&mut self) -> Result<Option<u8>, FileError> {
+        let val = self.pop_front();
+        Ok(val)
+    }
+
+    fn write(&mut self, val: u8) -> Result<(), FileError> {
+        self.push_back(val);
+        Ok(())
+    }
 
     fn as_any(&self) -> &dyn Any { self }
 }
@@ -58,9 +60,10 @@ impl From<FileError> for FilesError {
 
 #[derive(Debug)]
 pub struct Files {
-    files: Vec<Option<Rc<dyn File>>>,
+    files: Vec<Option<Box<dyn File>>>,
     count: usize,
-    current: Option<UWord>,
+    current: Option<(usize, Box<dyn File>)>,
+    eof: bool,
 }
 
 impl Files {
@@ -71,6 +74,7 @@ impl Files {
             files: Vec::new(),
             count: 0,
             current: None,
+            eof: false,
         }
     }
 
@@ -82,69 +86,94 @@ impl Files {
             return Err((FilesError::LimitExceeded, file));
         }
 
-        let idx = self.files
-            .iter()
-            .position(|f| f.is_none());
+        let mut idx = None;
+        let current = self.current
+            .as_ref()
+            .map(|(idx, _)| *idx);
 
-        let idx = if let Some(idx) = idx {
-            idx
-        } else {
+        // Find a free cell
+        for i in 0..self.files.len() {
+            if self.files[i].is_none() {
+                match current {
+                    // The cell can be current
+                    Some(c) if c == i => (),
+                    _ => {
+                        idx = Some(i);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // If the free cell not was found, it needs to expand `files` vector
+        let idx = idx.unwrap_or_else(|| {
             let len = self.files.len();
             self.files.push(None);
             len
-        };
+        });
 
-        self.files[idx] = Some(Rc::new(file));
+        self.files[idx] = Some(Box::new(file));
         self.count += 1;
 
         Ok(idx as UWord)
     }
 
-    pub fn close(&mut self, idx: UWord) -> Result<Rc<dyn File>, FilesError> {
-        let file = self.files
-            .get_mut(idx as usize)
-            .ok_or(FilesError::NotFound)?
-            .take()
-            .ok_or(FilesError::NotFound)?;
-
-        if let Some(current) = self.current {
-            if current == idx {
-                self.current = None;
-            }
-        }
+    pub fn close(&mut self, idx: UWord) -> Result<Box<dyn File>, FilesError> {
+        let file = match self.current {
+            Some((current, _)) if current == idx as usize => self.current
+                .take()
+                .map(|(_, file)| file)
+                .unwrap(),
+            _ => self.files
+                .get_mut(idx as usize)
+                .ok_or(FilesError::NotFound)?
+                .take()
+                .ok_or(FilesError::NotFound)?,
+        };
 
         self.count -= 1;
         Ok(file)
     }
 
     pub fn set_current(&mut self, idx: UWord) -> Result<(), FilesError> {
-        let _ = self.files
-            .get(idx as usize)
+        let idx = idx as usize;
+        let file = self.files
+            .get_mut(idx)
             .ok_or(FilesError::NotFound)?
-            .as_ref()
+            .take()
             .ok_or(FilesError::NotFound)?;
 
-        self.current = Some(idx);
+        self.current = Some((idx, file));
         Ok(())
     }
 
     pub fn current(&self) -> Result<UWord, FilesError> {
-        let current = self.current.ok_or(FilesError::CurrentIsNotSet)?;
-        Ok(current)
+        let (current, _) = self.current
+            .as_ref()
+            .ok_or(FilesError::CurrentIsNotSet)?;
+
+        Ok(*current as UWord)
     }
 
     fn get_mut(&mut self) -> Result<&mut dyn File, FilesError> {
-        let idx = self.current
+        let (_, file) = self.current
+            .as_mut()
             .ok_or(FilesError::CurrentIsNotSet)?;
 
-        let file = self.files[idx as usize].as_mut().unwrap();
-        Ok(Rc::get_mut(file).unwrap() as &mut dyn File)
+        Ok(Box::as_mut(file) as &mut dyn File)
     }
 
     pub fn read(&mut self) -> Result<u8, FilesError> {
         let file = self.get_mut()?;
         let val = file.read()?;
-        Ok(val)
+
+        if let Some(val) = val {
+            self.eof = false;
+            Ok(val)
+        } else {
+            self.eof = true;
+            Ok(0)
+        }
     }
 
     pub fn write(&mut self, val: u8) -> Result<(), FilesError> {
@@ -157,5 +186,27 @@ impl Files {
         let file = self.get_mut()?;
         file.flush()?;
         Ok(())
+    }
+
+    pub fn eof(&self) -> bool { self.eof }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn files_open() {
+        let mut files = Files::new();
+        assert_eq!(files.open(Vec::new()), Ok(0));
+        assert_eq!(files.open(Vec::new()), Ok(1));
+
+        files.set_current(0).unwrap();
+        assert_eq!(files.current(), Ok(0));
+        assert_eq!(files.open(Vec::new()), Ok(2));
+
+        let _ = files.close(0).unwrap();
+        assert_eq!(files.current(), Err(FilesError::CurrentIsNotSet));
+        assert_eq!(files.open(Vec::new()), Ok(0));
     }
 }

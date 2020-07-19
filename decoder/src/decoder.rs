@@ -201,18 +201,19 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Ret(un_op, op_type)
         }
         IN => {
-            let var: Variant = decode(bytes)?;
+            let (_, _, var): (OpType, Mode, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             In(un_op)
         }
         OUT => {
-            let var: Variant = decode(bytes)?;
+            let (_, _, var): (OpType, Mode, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             Out(un_op)
         }
         FLS => Fls,
+        EOF => Eof(decode(bytes)?),
         _ => return Err(DecodeError::UnknownOpCode),
     };
 
@@ -297,21 +298,6 @@ impl Decode<()> for (OpType, Mode, Variant) {
         let variant = Variant::new((meta & VARIANT_BITS) >> 6)?;
 
         Ok((op_type, mode, variant))
-    }
-}
-
-impl Decode<()> for Variant {
-    type Err = DecodeError;
-
-    fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
-        where
-            R: std::io::Read
-    {
-        const VARIANT_BITS: u8 = 0b1100_0000;
-
-        let meta = bytes.read_u8()?;
-        let variant = Variant::new((meta & VARIANT_BITS) >> 6)?;
-        Ok(variant)
     }
 }
 
