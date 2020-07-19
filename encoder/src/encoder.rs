@@ -179,6 +179,15 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             RET.encode(buf)?;
             (u, t).encode(buf)
         }
+        In(u) => {
+            IN.encode(buf)?;
+            (u, OpType::U8, Mode(0)).encode(buf)
+        }
+        Out(u) => {
+            OUT.encode(buf)?;
+            (u, OpType::U8, Mode(0)).encode(buf)
+        }
+        Fls => FLS.encode(buf),
     }
 }
 
@@ -515,5 +524,25 @@ mod tests {
         encode_op(op, &mut buf).unwrap();
 
         assert_eq!(buf, &[RET, 0b0000_0000, 16]);
+    }
+
+    #[test]
+    fn encode_in() {
+        let op = Op::In(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(1)));
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[IN, 0b0100_0000, 0, 1]);
+    }
+
+    #[test]
+    fn encode_fls() {
+        let op = Op::Fls;
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[FLS]);
     }
 }

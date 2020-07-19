@@ -594,3 +594,61 @@ fn executor_gcd() {
     assert_eq!(executed, Executed::Ok(ExecutionSuccess::End(0)));
     assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(13));
 }
+
+#[test]
+fn executor_hello() {
+    use super::super::files::File;
+
+    let functions = [
+        Function {
+            frame_size: 6 + std::mem::size_of::<UWord>() as UWord,
+            program: &[
+                // u8[6] hello // "Hello!"
+                Op::Set(BinOp::new(Operand::Loc(0), Operand::Val('H' as UWord)), OpType::U8),
+                Op::Set(BinOp::new(Operand::Loc(1), Operand::Val('e' as UWord)), OpType::U8),
+                Op::Set(BinOp::new(Operand::Loc(2), Operand::Val('l' as UWord)), OpType::U8),
+                Op::Set(BinOp::new(Operand::Loc(3), Operand::Val('l' as UWord)), OpType::U8),
+                Op::Set(BinOp::new(Operand::Loc(4), Operand::Val('o' as UWord)), OpType::U8),
+                Op::Set(BinOp::new(Operand::Loc(5), Operand::Val('!' as UWord)), OpType::U8),
+                //
+                // uw i
+                // set i 0
+                Op::Set(BinOp::new(Operand::Loc(6), Operand::Val(0)), OpType::Uw),
+                // loop:
+                // out hello{i}
+                Op::Out(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(6))),
+                // inc i
+                Op::Inc(UnOp::new(Operand::Loc(6)), OpType::Uw, ArithmeticMode::default()),
+                // ifl i 6
+                Op::Ifl(BinOp::new(Operand::Loc(6), Operand::Val(6)), OpType::Uw),
+                // go loop
+                Op::Go(Operand::Val(7)),
+                // end
+                Op::End(Operand::Val(0)),
+            ],
+        }
+    ];
+
+    let mut exe = Executor::new(&functions);
+    let file: Vec<u8> = Vec::new();
+
+    assert_eq!(exe.files.open(file), Ok(0));
+    exe.files.set_current(0).unwrap();
+    exe.call(0, 0).unwrap();
+
+    let mut executed = Executed::Ok(ExecutionSuccess::Ok);
+    while let Executed::Ok(ExecutionSuccess::Ok) = executed {
+        executed = exe.execute();
+    };
+
+    assert_eq!(executed, Executed::Ok(ExecutionSuccess::End(0)));
+    let file = exe.files.close(0).unwrap();
+    let slice = file
+        .as_any()
+        .downcast_ref::<Vec<u8>>()
+        .unwrap()
+        .as_slice();
+
+    let hello = String::from_utf8_lossy(slice);
+    assert_eq!(hello, "Hello!");
+}

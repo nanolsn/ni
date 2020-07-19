@@ -200,6 +200,19 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
 
             Ret(un_op, op_type)
         }
+        IN => {
+            let var: Variant = decode(bytes)?;
+            let un_op = decode_with(bytes, var)?;
+
+            In(un_op)
+        }
+        OUT => {
+            let var: Variant = decode(bytes)?;
+            let un_op = decode_with(bytes, var)?;
+
+            Out(un_op)
+        }
+        FLS => Fls,
         _ => return Err(DecodeError::UnknownOpCode),
     };
 
@@ -284,6 +297,21 @@ impl Decode<()> for (OpType, Mode, Variant) {
         let variant = Variant::new((meta & VARIANT_BITS) >> 6)?;
 
         Ok((op_type, mode, variant))
+    }
+}
+
+impl Decode<()> for Variant {
+    type Err = DecodeError;
+
+    fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
+        where
+            R: std::io::Read
+    {
+        const VARIANT_BITS: u8 = 0b1100_0000;
+
+        let meta = bytes.read_u8()?;
+        let variant = Variant::new((meta & VARIANT_BITS) >> 6)?;
+        Ok(variant)
     }
 }
 
@@ -679,6 +707,38 @@ mod tests {
         ];
 
         let expected = Op::Ret(UnOp::new(Operand::Loc(16)), OpType::U8);
+
+        let mut code = code.as_ref();
+        let actual = decode_op(&mut code).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(code.is_empty());
+    }
+
+    #[test]
+    fn decode_in() {
+        let code = [
+            // in loc(0){loc(1)}
+            IN, 0b0100_0000, 0, 1,
+        ];
+
+        let expected = Op::In(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(1)));
+
+        let mut code = code.as_ref();
+        let actual = decode_op(&mut code).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(code.is_empty());
+    }
+
+    #[test]
+    fn decode_fls() {
+        let code = [
+            // fls
+            FLS,
+        ];
+
+        let expected = Op::Fls;
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();

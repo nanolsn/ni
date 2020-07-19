@@ -3,6 +3,7 @@ mod tests;
 
 use common::*;
 use super::{
+    files::{Files, FilesError},
     memory::*,
     primary::*,
 };
@@ -25,6 +26,7 @@ pub struct FunctionCall<'f> {
 pub enum ExecutionError {
     EndOfProgram,
     MemoryError(MemoryError),
+    FilesError(FilesError),
     IncorrectOperation(Op),
     UnknownFunction(UWord),
     OperationOverflow,
@@ -34,6 +36,10 @@ pub enum ExecutionError {
 
 impl From<MemoryError> for ExecutionError {
     fn from(e: MemoryError) -> Self { ExecutionError::MemoryError(e) }
+}
+
+impl From<FilesError> for ExecutionError {
+    fn from(e: FilesError) -> Self { ExecutionError::FilesError(e) }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -53,6 +59,7 @@ pub struct Executor<'f> {
     call_stack: Vec<FunctionCall<'f>>,
     prepared_call: bool,
     parameter_ptr: UWord,
+    files: Files,
 }
 
 macro_rules! impl_exec_bin {
@@ -145,7 +152,10 @@ macro_rules! impl_cnv {
 
 impl<'f> Executor<'f> {
     pub fn new(functions: &'f [Function]) -> Self {
-        Self::from_limits(functions, 2048, 2048)
+        const STACK_LIMIT: usize = 2048;
+        const HEAP_LIMIT: usize = 2048;
+
+        Self::from_limits(functions, STACK_LIMIT, HEAP_LIMIT)
     }
 
     pub fn from_limits(functions: &'f [Function], stack_limit: usize, heap_limit: usize) -> Self {
@@ -156,6 +166,7 @@ impl<'f> Executor<'f> {
             call_stack: Vec::new(),
             prepared_call: false,
             parameter_ptr: 0,
+            files: Files::new(),
         }
     }
 
@@ -1240,6 +1251,20 @@ impl<'f> Executor<'f> {
 
                 self.ret()?;
                 return Ok(ExecutionSuccess::Ok);
+            }
+            In(un) => {
+                let val = self.files.read()?;
+                self.set_val(self.read_un_operand(un)?, val)?;
+                Ok(ExecutionSuccess::Ok)
+            }
+            Out(un) => {
+                let val = self.get_val(self.read_un_operand(un)?)?;
+                self.files.write(val)?;
+                Ok(ExecutionSuccess::Ok)
+            }
+            Fls => {
+                self.files.flush()?;
+                Ok(ExecutionSuccess::Ok)
             }
         };
 

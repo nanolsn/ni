@@ -259,6 +259,9 @@ pub enum Op {
     Par(UnOp, OpType, ParameterMode),
     Clf(Operand),
     Ret(UnOp, OpType),
+    In(UnOp),
+    Out(UnOp),
+    Fls,
 }
 
 impl Op {
@@ -318,6 +321,9 @@ impl Op {
             Par(..) => PAR,
             Clf(..) => CLF,
             Ret(..) => RET,
+            In(..) => IN,
+            Out(..) => OUT,
+            Fls => FLS,
         }
     }
 }
@@ -365,6 +371,9 @@ impl std::fmt::Debug for Op {
             Par(u, t, m) => write!(f, "par {:?} {:?} {:?}", m, t, u),
             Clf(x) => write!(f, "clf {:?}", x),
             Ret(u, t) => write!(f, "ret {:?} {:?}", t, u),
+            In(u) => write!(f, "in  {:?}", u),
+            Out(u) => write!(f, "out {:?}", u),
+            Fls => write!(f, "fls"),
         }
     }
 }

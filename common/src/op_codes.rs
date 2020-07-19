@@ -117,3 +117,18 @@ pub const IN: u8 = 0x26;
 
 /// Output.
 pub const OUT: u8 = 0x27;
+
+/// Flush.
+pub const FLS: u8 = 0x28;
+
+/// Open file.
+pub const OPN: u8 = 0x29;
+
+/// Close file.
+pub const CLS: u8 = 0x2A;
+
+/// Set file descriptor.
+pub const SFD: u8 = 0x2B;
+
+/// Get file descriptor.
+pub const GFD: u8 = 0x2C;
