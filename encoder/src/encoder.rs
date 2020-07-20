@@ -369,18 +369,21 @@ impl Encode for BinOp {
         where
             W: Write,
     {
-        self.x.encode(buf)?;
-        self.y.encode(buf)?;
+        let (x, y, offset) = match self {
+            BinOp::None { x, y } => (x, y, None),
+            BinOp::First { x, y, offset } => (x, y, Some(offset)),
+            BinOp::Second { x, y, offset } => (x, y, Some(offset)),
+            BinOp::Both { x, y, offset } => (x, y, Some(offset)),
+        };
 
-        if let Some(o) = self.x_offset {
-            o.encode(buf)?
+        x.encode(buf)?;
+        y.encode(buf)?;
+
+        if let Some(o) = offset {
+            o.encode(buf)
+        } else {
+            Ok(())
         }
-
-        if let Some(o) = self.y_offset {
-            o.encode(buf)?
-        }
-
-        Ok(())
     }
 }
 
@@ -391,13 +394,18 @@ impl Encode for UnOp {
         where
             W: Write,
     {
-        self.x.encode(buf)?;
+        let (x, offset) = match self {
+            UnOp::None { x } => (x, None),
+            UnOp::First { x, offset } => (x, Some(offset)),
+        };
 
-        if let Some(o) = self.x_offset {
-            o.encode(buf)?
+        x.encode(buf)?;
+
+        if let Some(o) = offset {
+            o.encode(buf)
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 }
 
@@ -444,9 +452,9 @@ mod tests {
     }
 
     #[test]
-    fn encode_first_offset() {
+    fn encode_un_first_offset() {
         let op = Op::Inc(
-            UnOp::new(Operand::Ind(16)).with_x_offset(Operand::Ref(1)),
+            UnOp::new(Operand::Ind(16)).with_first(Operand::Ref(1)),
             OpType::I16,
             ArithmeticMode::default(),
         );
@@ -485,6 +493,45 @@ mod tests {
     }
 
     #[test]
+    fn encode_bin_first_offset() {
+        let op = Op::Set(
+            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_first(Operand::Val(5)),
+            OpType::U32,
+        );
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[SET, 0b0100_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5]);
+    }
+
+    #[test]
+    fn encode_bin_second_offset() {
+        let op = Op::Div(
+            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_second(Operand::Val(5)),
+            OpType::U32,
+        );
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[DIV, 0b1000_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5]);
+    }
+
+    #[test]
+    fn encode_bin_both_offset() {
+        let op = Op::Mod(
+            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_both(Operand::Val(5)),
+            OpType::U32,
+        );
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[MOD, 0b1100_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5]);
+    }
+
+    #[test]
     fn encode_cnv() {
         let op = Op::Cnv(Operand::Loc(12), Operand::Loc(9), OpType::U8, OpType::U16);
 
@@ -507,7 +554,7 @@ mod tests {
     #[test]
     fn encode_ife() {
         let op = Op::Ife(
-            BinOp::new(Operand::Loc(12), Operand::Ref(8)).with_x_offset(Operand::Ref(4)),
+            BinOp::new(Operand::Loc(12), Operand::Ref(8)).with_first(Operand::Ref(4)),
             OpType::U16,
         );
 
@@ -530,7 +577,7 @@ mod tests {
     #[test]
     fn encode_par() {
         let op = Op::Par(
-            UnOp::new(Operand::Ref(8)).with_x_offset(Operand::Val(6)),
+            UnOp::new(Operand::Ref(8)).with_first(Operand::Val(6)),
             OpType::F32,
             ParameterMode::Emp,
         );
@@ -554,19 +601,18 @@ mod tests {
     #[test]
     fn encode_in() {
         let op = Op::In(BinOp::new(Operand::Loc(0), Operand::Loc(2))
-            .with_x_offset(Operand::Loc(1))
-            .with_y_offset(Operand::Loc(3))
+            .with_both(Operand::Loc(1))
         );
 
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();
 
-        assert_eq!(buf, &[IN, 0b1100_0000, 0, 2, 1, 3]);
+        assert_eq!(buf, &[IN, 0b1100_0000, 0, 2, 1]);
     }
 
     #[test]
     fn encode_out() {
-        let op = Op::Out(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(1)));
+        let op = Op::Out(UnOp::new(Operand::Loc(0)).with_first(Operand::Loc(1)));
 
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();

@@ -129,93 +129,80 @@ impl std::fmt::Debug for Operand {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub struct UnOp {
-    pub x: Operand,
-    pub x_offset: Option<Operand>,
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum UnOp {
+    None { x: Operand },
+    First { x: Operand, offset: Operand },
 }
 
 impl UnOp {
-    pub fn new(x: Operand) -> Self { Self { x, x_offset: None } }
+    pub fn new(x: Operand) -> Self { UnOp::None { x } }
 
-    pub fn with_x_offset(mut self, x_offset: Operand) -> Self {
-        self.x_offset = Some(x_offset);
-        self
+    pub fn with_first(self, offset: Operand) -> Self {
+        if let UnOp::None { x } = self {
+            UnOp::First { x, offset }
+        } else {
+            panic!("Wrong UnOp variant!")
+        }
     }
 
     pub fn variant(&self) -> Variant {
         match self {
-            UnOp { x_offset: None, .. } => Variant::NoOffset,
-            _ => Variant::First,
+            UnOp::None { .. } => Variant::None,
+            UnOp::First { .. } => Variant::First,
+        }
+    }
+
+    pub fn x(&self) -> Operand {
+        match self {
+            UnOp::None { x } => *x,
+            UnOp::First { x, .. } => *x,
         }
     }
 }
 
-impl std::fmt::Debug for UnOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.x)?;
-
-        if let Some(offset) = &self.x_offset {
-            write!(f, ":{:?}", offset)?;
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub struct BinOp {
-    pub x: Operand,
-    pub x_offset: Option<Operand>,
-    pub y: Operand,
-    pub y_offset: Option<Operand>,
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum BinOp {
+    None { x: Operand, y: Operand },
+    First { x: Operand, y: Operand, offset: Operand },
+    Second { x: Operand, y: Operand, offset: Operand },
+    Both { x: Operand, y: Operand, offset: Operand },
 }
 
 impl BinOp {
-    pub fn new(x: Operand, y: Operand) -> Self {
-        Self {
-            x,
-            x_offset: None,
-            y,
-            y_offset: None,
+    pub fn new(x: Operand, y: Operand) -> Self { BinOp::None { x, y } }
+
+    pub fn with_first(self, offset: Operand) -> Self {
+        if let BinOp::None { x, y } = self {
+            BinOp::First { x, y, offset }
+        } else {
+            panic!("Wrong BinOp variant!")
         }
     }
 
-    pub fn with_x_offset(mut self, x_offset: Operand) -> Self {
-        self.x_offset = Some(x_offset);
-        self
+    pub fn with_second(self, offset: Operand) -> Self {
+        if let BinOp::None { x, y } = self {
+            BinOp::Second { x, y, offset }
+        } else {
+            panic!("Wrong BinOp variant!")
+        }
     }
 
-    pub fn with_y_offset(mut self, y_offset: Operand) -> Self {
-        self.y_offset = Some(y_offset);
-        self
+    pub fn with_both(self, offset: Operand) -> Self {
+        if let BinOp::None { x, y } = self {
+            BinOp::Both { x, y, offset }
+        } else {
+            panic!("Wrong BinOp variant!")
+        }
     }
 
     pub fn variant(&self) -> Variant {
         match self {
-            BinOp { x_offset: None, y_offset: None, .. } => Variant::NoOffset,
-            BinOp { x_offset: Some(_), y_offset: None, .. } => Variant::First,
-            BinOp { x_offset: None, y_offset: Some(_), .. } => Variant::Second,
-            _ => Variant::Both,
+            BinOp::None { .. } => Variant::None,
+            BinOp::First { .. } => Variant::First,
+            BinOp::Second { .. } => Variant::Second,
+            BinOp::Both { .. } => Variant::Both,
         }
-    }
-}
-
-impl std::fmt::Debug for BinOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.x)?;
-
-        if let Some(offset) = &self.x_offset {
-            write!(f, ":{:?}", offset)?;
-        }
-
-        write!(f, " {:?}", self.y)?;
-
-        if let Some(offset) = &self.y_offset {
-            write!(f, ":{:?}", offset)?;
-        }
-
-        Ok(())
     }
 }
 
@@ -619,7 +606,7 @@ impl std::fmt::Debug for ParameterMode {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Variant {
     /// `x y` variant.
-    NoOffset,
+    None,
 
     /// `x{q} y` variant.
     First,
@@ -636,7 +623,7 @@ impl Variant {
         use Variant::*;
 
         Ok(match variant {
-            0 => NoOffset,
+            0 => None,
             1 => First,
             2 => Second,
             3 => Both,
@@ -648,7 +635,7 @@ impl Variant {
         use Variant::*;
 
         match self {
-            NoOffset => 0,
+            None => 0,
             First => 1,
             Second => 2,
             Both => 3,
@@ -657,5 +644,5 @@ impl Variant {
 }
 
 impl Default for Variant {
-    fn default() -> Self { Variant::NoOffset }
+    fn default() -> Self { Variant::None }
 }

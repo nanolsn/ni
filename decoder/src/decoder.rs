@@ -271,12 +271,10 @@ impl Decode<Variant> for BinOp {
         let bin_op = BinOp::new(decode(bytes)?, decode(bytes)?);
 
         Ok(match var {
-            Variant::NoOffset => bin_op,
-            Variant::First => bin_op.with_x_offset(decode(bytes)?),
-            Variant::Second => bin_op.with_y_offset(decode(bytes)?),
-            Variant::Both => bin_op
-                .with_x_offset(decode(bytes)?)
-                .with_y_offset(decode(bytes)?)
+            Variant::None => bin_op,
+            Variant::First => bin_op.with_first(decode(bytes)?),
+            Variant::Second => bin_op.with_second(decode(bytes)?),
+            Variant::Both => bin_op.with_both(decode(bytes)?),
         })
     }
 }
@@ -291,8 +289,8 @@ impl Decode<Variant> for UnOp {
         let un_op = UnOp::new(decode(bytes)?);
 
         Ok(match var {
-            Variant::NoOffset => un_op,
-            Variant::First => un_op.with_x_offset(decode(bytes)?),
+            Variant::None => un_op,
+            Variant::First => un_op.with_first(decode(bytes)?),
             _ => return Err(DecodeError::IncorrectVariant),
         })
     }
@@ -488,7 +486,7 @@ mod tests {
         ];
 
         let expected = Op::Inc(
-            UnOp::new(Operand::Ind(16)).with_x_offset(Operand::Ref(1)),
+            UnOp::new(Operand::Ind(16)).with_first(Operand::Ref(1)),
             OpType::I16,
             ArithmeticMode::default(),
         );
@@ -543,11 +541,11 @@ mod tests {
     fn decode_bin_first_offset() {
         let code = [
             // set u32 ret(8){val(5)} ref(16)
-            SET, 0b0101_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
+            SET, 0b0100_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
         ];
 
         let expected = Op::Set(
-            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_x_offset(Operand::Val(5)),
+            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_first(Operand::Val(5)),
             OpType::U32,
         );
 
@@ -566,7 +564,7 @@ mod tests {
         ];
 
         let expected = Op::Div(
-            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_y_offset(Operand::Val(5)),
+            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_second(Operand::Val(5)),
             OpType::U32,
         );
 
@@ -580,16 +578,12 @@ mod tests {
     #[test]
     fn decode_bin_both_offset() {
         let code = [
-            // mod u32 ret(8){val(5)} ref(16){val(6)}
-            MOD, 0b1100_0100, 0b1010_0000, 8, 0b1100_0000, 16,
-            0b1011_0000, 5,
-            0b1011_0000, 6,
+            // mod u32 ret(8){val(5)} ref(16){val(5)}
+            MOD, 0b1100_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
         ];
 
         let expected = Op::Mod(
-            BinOp::new(Operand::Ret(8), Operand::Ref(16))
-                .with_x_offset(Operand::Val(5))
-                .with_y_offset(Operand::Val(6)),
+            BinOp::new(Operand::Ret(8), Operand::Ref(16)).with_both(Operand::Val(5)),
             OpType::U32,
         );
 
@@ -640,7 +634,7 @@ mod tests {
         ];
 
         let expected = Op::Ife(
-            BinOp::new(Operand::Loc(12), Operand::Ref(8)).with_x_offset(Operand::Ref(4)),
+            BinOp::new(Operand::Loc(12), Operand::Ref(8)).with_first(Operand::Ref(4)),
             OpType::U16,
         );
 
@@ -691,7 +685,7 @@ mod tests {
         ];
 
         let expected = Op::Par(
-            UnOp::new(Operand::Ref(8)).with_x_offset(Operand::Val(6)),
+            UnOp::new(Operand::Ref(8)).with_first(Operand::Val(6)),
             OpType::F32,
             ParameterMode::Emp,
         );
@@ -722,13 +716,12 @@ mod tests {
     #[test]
     fn decode_in() {
         let code = [
-            // in loc(0){loc(1)} loc(2){loc(3)}
-            IN, 0b1100_0000, 0, 2, 1, 3
+            // in loc(0){loc(1)} loc(2){loc(1)}
+            IN, 0b1100_0000, 0, 2, 1,
         ];
 
         let expected = Op::In(BinOp::new(Operand::Loc(0), Operand::Loc(2))
-            .with_x_offset(Operand::Loc(1))
-            .with_y_offset(Operand::Loc(3))
+            .with_both(Operand::Loc(1))
         );
 
         let mut code = code.as_ref();
@@ -745,7 +738,7 @@ mod tests {
             OUT, 0b0100_0000, 0, 1
         ];
 
-        let expected = Op::Out(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(1)));
+        let expected = Op::Out(UnOp::new(Operand::Loc(0)).with_first(Operand::Loc(1)));
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();

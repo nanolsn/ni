@@ -300,29 +300,28 @@ impl<'f> Executor<'f> {
     }
 
     fn read_un_operand(&self, un: UnOp) -> Result<Operand, ExecutionError> {
-        let left = if let Some(offset) = un.x_offset {
-            self.make_offset(un.x, offset)?
-        } else {
-            un.x
-        };
-
-        Ok(left)
+        Ok(match un {
+            UnOp::None { x } => x,
+            UnOp::First { x, offset } => self.make_offset(x, offset)?,
+        })
     }
 
     fn read_bin_operands(&self, bin: BinOp) -> Result<(Operand, Operand), ExecutionError> {
-        let left = if let Some(offset) = bin.x_offset {
-            self.make_offset(bin.x, offset)?
-        } else {
-            bin.x
-        };
-
-        let right = if let Some(offset) = bin.y_offset {
-            self.make_offset(bin.y, offset)?
-        } else {
-            bin.y
-        };
-
-        Ok((left, right))
+        Ok(match bin {
+            BinOp::None { x, y } => (x, y),
+            BinOp::First { x, y, offset } => (
+                self.make_offset(x, offset)?,
+                y,
+            ),
+            BinOp::Second { x, y, offset } => (
+                x,
+                self.make_offset(y, offset)?,
+            ),
+            BinOp::Both { x, y, offset } => (
+                self.make_offset(x, offset)?,
+                self.make_offset(y, offset)?,
+            ),
+        })
     }
 
     fn get_un<T>(&mut self, un: UnOp) -> Result<T, ExecutionError>
@@ -1232,7 +1231,7 @@ impl<'f> Executor<'f> {
                 return Ok(ExecutionSuccess::Ok);
             }
             Ret(un, ot) => {
-                if un.x != Operand::Emp {
+                if un.x() != Operand::Emp {
                     match ot {
                         U8 => self.set_ret::<u8>(un)?,
                         I8 => self.set_ret::<i8>(un)?,

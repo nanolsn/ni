@@ -49,8 +49,6 @@ impl MemoryPage {
 
     pub fn len(&self) -> UWord { self.page.len() as UWord }
 
-    pub fn as_slice(&self) -> &[u8] { self.page.as_slice() }
-
     pub fn get(&self, ptr: UWord, size: UWord) -> Result<&[u8], MemoryError> {
         self.page.get(ptr as usize..ptr.wrapping_add(size) as usize)
             .ok_or(MemoryError::SegmentationFault(ptr, size))
@@ -232,7 +230,7 @@ mod tests {
         let mut mem = Memory::from_limits(2048, 2048);
         mem.stack.expand(4).unwrap();
         assert_eq!(mem.stack.len(), 4);
-        assert_eq!(mem.stack.as_slice(), [0, 0, 0, 0]);
+        assert_eq!(mem.stack.page.as_slice(), [0, 0, 0, 0]);
 
         let mut mem = Memory::from_limits(2048, 2048);
         assert_eq!(mem.stack.expand(UWord::MAX), Err(MemoryError::PageOverflow("stack")));
@@ -243,7 +241,7 @@ mod tests {
         let mut mem = Memory::from_limits(2048, 2048);
         mem.stack.expand(9).unwrap();
         mem.set(1, 0xFF000F0A_usize).unwrap();
-        assert_eq!(mem.stack.as_slice(), [0, 10, 15, 0, 255, 0, 0, 0, 0]);
+        assert_eq!(mem.stack.page.as_slice(), [0, 10, 15, 0, 255, 0, 0, 0, 0]);
 
         let value: usize = mem.get(1).unwrap();
         assert_eq!(value, 0xFF000F0A_usize);
@@ -254,7 +252,7 @@ mod tests {
         let mut mem = Memory::from_limits(2048, 2048);
         mem.heap.expand(9).unwrap();
         mem.set(Memory::HEAP_BASE + 1, 0xFF000F0A_usize).unwrap();
-        assert_eq!(mem.heap.as_slice(), [0, 10, 15, 0, 255, 0, 0, 0, 0]);
+        assert_eq!(mem.heap.page.as_slice(), [0, 10, 15, 0, 255, 0, 0, 0, 0]);
 
         let value: usize = mem.get(Memory::HEAP_BASE + 1).unwrap();
         assert_eq!(value, 0xFF000F0A_usize);
@@ -286,7 +284,7 @@ mod tests {
         mem.heap.expand(8).unwrap();
         mem.copy(Memory::HEAP_BASE, 0, 8).unwrap();
 
-        assert_eq!(mem.stack.as_slice(), mem.heap.as_slice());
+        assert_eq!(mem.stack.page.as_slice(), mem.heap.page.as_slice());
 
         let mut mem = Memory::from_limits(2048, 2048);
         mem.heap.expand(8).unwrap();
@@ -295,7 +293,7 @@ mod tests {
         mem.stack.expand(8).unwrap();
         mem.copy(0, Memory::HEAP_BASE, 8).unwrap();
 
-        assert_eq!(mem.stack.as_slice(), mem.heap.as_slice());
+        assert_eq!(mem.stack.page.as_slice(), mem.heap.page.as_slice());
     }
 
     #[test]
@@ -305,7 +303,7 @@ mod tests {
         mem.set(0, 0xFF04).unwrap();
 
         mem.copy(8, 0, 8).unwrap();
-        assert_eq!(mem.stack.as_slice(), [
+        assert_eq!(mem.stack.page.as_slice(), [
             4, 255, 0, 0, 0, 0, 0, 0,
             4, 255, 0, 0, 0, 0, 0, 0,
         ]);
@@ -315,7 +313,7 @@ mod tests {
         mem.set(Memory::HEAP_BASE, 0xFF04).unwrap();
 
         mem.copy(Memory::HEAP_BASE + 8, Memory::HEAP_BASE, 8).unwrap();
-        assert_eq!(mem.heap.as_slice(), [
+        assert_eq!(mem.heap.page.as_slice(), [
             4, 255, 0, 0, 0, 0, 0, 0,
             4, 255, 0, 0, 0, 0, 0, 0,
         ]);

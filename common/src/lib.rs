@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 mod expected;
 pub mod op_codes;
 mod operations;

@@ -614,7 +614,7 @@ fn executor_hello() {
                 Op::Set(BinOp::new(Operand::Loc(6), Operand::Val(0)), OpType::Uw),
                 // loop:
                 // out hello{i}
-                Op::Out(UnOp::new(Operand::Loc(0)).with_x_offset(Operand::Loc(6))),
+                Op::Out(UnOp::new(Operand::Loc(0)).with_first(Operand::Loc(6))),
                 // inc i
                 Op::Inc(UnOp::new(Operand::Loc(6)), OpType::Uw, ArithmeticMode::default()),
                 // ifl i 6
