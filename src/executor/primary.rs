@@ -1,4 +1,4 @@
-use common::UWord;
+use crate::common::UWord;
 
 pub trait Primary: Sized {
     const SIZE: usize = std::mem::size_of::<Self>();

@@ -3,7 +3,7 @@ use std::{
     collections::vec_deque::VecDeque,
 };
 
-use common::UWord;
+use crate::common::UWord;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FileError {

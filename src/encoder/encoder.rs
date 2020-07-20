@@ -1,5 +1,5 @@
 use std::io::{self, Write};
-use common::*;
+use crate::common::*;
 use super::encode::*;
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use common::*;
+use crate::common::*;
 use super::{
     files::{Files, FilesError},
     memory::*,

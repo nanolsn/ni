@@ -1,5 +1,5 @@
 use std::io::{self, Read};
-use common::*;
+use crate::common::*;
 use super::decode::*;
 
 #[derive(Debug)]

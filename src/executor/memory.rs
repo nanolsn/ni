@@ -1,4 +1,4 @@
-use common::UWord;
+use crate::common::UWord;
 use super::primary::Primary;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

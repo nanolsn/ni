@@ -1,8 +1,18 @@
-[workspace]
-members = [
-    "common",
-    "decoder",
-    "encoder",
-    "executor",
-    "nil",
-]
+[package]
+name = "ni"
+version = "0.1.0"
+authors = ["nanolsn <nanonicholson@gmail.com>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "NI (Nano Interpreter) tool stack"
+repository = "https://github.com/nanolsn/ni"
+documentation = "https://docs.rs/ni"
+readme = "README.md"
+keywords = ["language"]
+
+[features]
+default = ["w32"]
+w32 = []
+w64 = []
+
+[dependencies]
