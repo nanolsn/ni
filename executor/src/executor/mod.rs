@@ -1280,6 +1280,31 @@ impl<'f> Executor<'f> {
                 self.set_val(x, self.files.current()?)?;
                 Ok(ExecutionSuccess::Ok)
             }
+            Zer(x, y) => {
+                let dest = self.get_val(x)?;
+                let size = self.get_val(y)?;
+                self.memory.set_zeros(dest, size)?;
+                Ok(ExecutionSuccess::Ok)
+            }
+            Cmp(x, y, z) => {
+                let a = self.get_val(x)?;
+                let b = self.get_val(y)?;
+                let size = self.get_val(z)?;
+
+                if self.memory.compare(a, b, size)? {
+                    Ok(ExecutionSuccess::Ok)
+                } else {
+                    self.pass_condition()?;
+                    return Ok(ExecutionSuccess::Ok);
+                }
+            }
+            Cpy(x, y, z) => {
+                let dest = self.get_val(x)?;
+                let src = self.get_val(y)?;
+                let size = self.get_val(z)?;
+                self.memory.copy(dest, src, size)?;
+                Ok(ExecutionSuccess::Ok)
+            }
         };
 
         if res.is_ok() {

@@ -189,6 +189,21 @@ impl Memory {
         };
     }
 
+    pub fn set_zeros(&mut self, dest: UWord, size: UWord) -> Result<(), MemoryError> {
+        let slice = self.slice_mut(dest, size)?;
+        slice
+            .iter_mut()
+            .for_each(|b| *b = 0);
+
+        Ok(())
+    }
+
+    pub fn compare(&self, a: UWord, b: UWord, size: UWord) -> Result<bool, MemoryError> {
+        let a_slice = self.slice(a, size)?;
+        let b_slice = self.slice(b, size)?;
+        Ok(a_slice == b_slice)
+    }
+
     fn slice(&self, ptr: UWord, size: UWord) -> Result<&[u8], MemoryError> {
         if ptr < Memory::HEAP_BASE {
             self.stack.get(ptr, size)
@@ -328,5 +343,24 @@ mod tests {
         mem.stack.expand(2).unwrap();
 
         assert_eq!(mem.copy(0, 1, UWord::MAX), Err(MemoryError::WrongRange));
+    }
+
+    #[test]
+    fn memory_set_zeros() {
+        let mut mem = Memory::from_limits(2048, 2048);
+        mem.stack.expand(16).unwrap();
+        mem.set(0, 0xFFFF).unwrap();
+        mem.set(8, 0xFFFF).unwrap();
+        mem.set_zeros(0, 16).unwrap();
+
+        assert!(mem.stack.page.iter().all(|b| *b == 0));
+
+        let mut mem = Memory::from_limits(2048, 2048);
+        mem.heap.expand(16).unwrap();
+        mem.set(Memory::HEAP_BASE, 0xFFFF).unwrap();
+        mem.set(Memory::HEAP_BASE + 8, 0xFFFF).unwrap();
+        mem.set_zeros(Memory::HEAP_BASE, 16).unwrap();
+
+        assert!(mem.heap.page.iter().all(|b| *b == 0));
     }
 }

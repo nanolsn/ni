@@ -215,6 +215,23 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
         FLS => Fls,
         SFD => Sfd(decode(bytes)?),
         GFD => Gfd(decode(bytes)?),
+        ZER => {
+            let x = decode(bytes)?;
+            let y = decode(bytes)?;
+            Zer(x, y)
+        }
+        CMP => {
+            let x = decode(bytes)?;
+            let y = decode(bytes)?;
+            let z = decode(bytes)?;
+            Cmp(x, y, z)
+        }
+        CPY => {
+            let x = decode(bytes)?;
+            let y = decode(bytes)?;
+            let z = decode(bytes)?;
+            Cpy(x, y, z)
+        }
         _ => return Err(DecodeError::UnknownOpCode),
     };
 
@@ -745,6 +762,22 @@ mod tests {
         ];
 
         let expected = Op::Fls;
+
+        let mut code = code.as_ref();
+        let actual = decode_op(&mut code).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(code.is_empty());
+    }
+
+    #[test]
+    fn decode_cpy() {
+        let code = [
+            // cpy loc(0) loc(1) val(12)
+            CPY, 0, 1, 0b1011_0000, 12,
+        ];
+
+        let expected = Op::Cpy(Operand::Loc(0), Operand::Loc(1), Operand::Val(12));
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();

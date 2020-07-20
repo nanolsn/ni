@@ -196,6 +196,23 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             GFD.encode(buf)?;
             x.encode(buf)
         }
+        Zer(x, y) => {
+            ZER.encode(buf)?;
+            x.encode(buf)?;
+            y.encode(buf)
+        }
+        Cmp(x, y, z) => {
+            CMP.encode(buf)?;
+            x.encode(buf)?;
+            y.encode(buf)?;
+            z.encode(buf)
+        }
+        Cpy(x, y, z) => {
+            CPY.encode(buf)?;
+            x.encode(buf)?;
+            y.encode(buf)?;
+            z.encode(buf)
+        }
     }
 }
 
@@ -565,5 +582,15 @@ mod tests {
         encode_op(op, &mut buf).unwrap();
 
         assert_eq!(buf, &[FLS]);
+    }
+
+    #[test]
+    fn encode_cpy() {
+        let op = Op::Cpy(Operand::Loc(0), Operand::Loc(1), Operand::Val(12));
+
+        let mut buf = vec![];
+        encode_op(op, &mut buf).unwrap();
+
+        assert_eq!(buf, &[CPY, 0, 1, 0b1011_0000, 12]);
     }
 }

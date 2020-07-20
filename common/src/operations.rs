@@ -264,6 +264,9 @@ pub enum Op {
     Fls,
     Sfd(Operand),
     Gfd(Operand),
+    Zer(Operand, Operand),
+    Cmp(Operand, Operand, Operand),
+    Cpy(Operand, Operand, Operand),
 }
 
 impl Op {
@@ -275,7 +278,8 @@ impl Op {
             | Ife(..) | Ifl(..) | Ifg(..)
             | Ine(..) | Inl(..) | Ing(..)
             | Ifa(..) | Ifo(..) | Ifx(..)
-            | Ina(..) | Ino(..) | Inx(..) => true,
+            | Ina(..) | Ino(..) | Inx(..)
+            | Cmp(..) => true,
             _ => false,
         }
     }
@@ -328,6 +332,9 @@ impl Op {
             Fls => FLS,
             Sfd(..) => SFD,
             Gfd(..) => GFD,
+            Zer(..) => ZER,
+            Cmp(..) => CMP,
+            Cpy(..) => CPY,
         }
     }
 }
@@ -380,6 +387,9 @@ impl std::fmt::Debug for Op {
             Fls => write!(f, "fls"),
             Sfd(x) => write!(f, "sfd {:?}", x),
             Gfd(x) => write!(f, "gfd {:?}", x),
+            Zer(x, y) => write!(f, "zer {:?} {:?}", x, y),
+            Cmp(x, y, z) => write!(f, "cmp {:?} {:?} {:?}", x, y, z),
+            Cpy(x, y, z) => write!(f, "cpy {:?} {:?} {:?}", x, y, z),
         }
     }
 }

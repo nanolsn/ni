@@ -698,3 +698,81 @@ fn executor_mul_from_in() {
     assert_eq!(executed, Executed::Ok(ExecutionSuccess::End(3 * 4)));
     assert_eq!(exe.get_val::<u8>(Operand::Loc(2)), Ok(1));
 }
+
+#[test]
+fn executor_zer() {
+    let functions = [
+        Function {
+            frame_size: 16,
+            program: &[
+                Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(0xFF)), OpType::U8),
+                Op::Set(BinOp::new(Operand::Loc(8), Operand::Val(0xFF)), OpType::U8),
+                Op::Set(BinOp::new(Operand::Loc(15), Operand::Val(0xFF)), OpType::U8),
+                Op::Zer(Operand::Val(0), Operand::Val(16)),
+            ],
+        },
+    ];
+
+    let mut exe = Executor::new(&functions);
+    exe.call(0, 0).unwrap();
+
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.get_val::<u64>(Operand::Loc(0)), Ok(0));
+    assert_eq!(exe.get_val::<u64>(Operand::Loc(8)), Ok(0));
+}
+
+#[test]
+fn executor_cmp() {
+    let functions = [
+        Function {
+            frame_size: 5,
+            program: &[
+                Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(0xFF)), OpType::U8),
+                Op::Set(BinOp::new(Operand::Loc(1), Operand::Val(0xFF)), OpType::U8),
+                Op::Set(BinOp::new(Operand::Loc(2), Operand::Val(0x02)), OpType::U8),
+                Op::Cmp(Operand::Val(0), Operand::Val(1), Operand::Val(1)),
+                Op::Set(BinOp::new(Operand::Loc(3), Operand::Val(1)), OpType::U8),
+                Op::Cmp(Operand::Val(0), Operand::Val(2), Operand::Val(1)),
+                Op::Set(BinOp::new(Operand::Loc(4), Operand::Val(1)), OpType::U8),
+                Op::End(Operand::Val(0)),
+            ],
+        },
+    ];
+
+    let mut exe = Executor::new(&functions);
+    exe.call(0, 0).unwrap();
+
+    let mut executed = Executed::Ok(ExecutionSuccess::Ok);
+    while let Executed::Ok(ExecutionSuccess::Ok) = executed {
+        executed = exe.execute();
+    };
+
+    assert_eq!(executed, Executed::Ok(ExecutionSuccess::End(0)));
+    assert_eq!(exe.get_val::<u8>(Operand::Loc(3)), Ok(1));
+    assert_eq!(exe.get_val::<u8>(Operand::Loc(4)), Ok(0));
+}
+
+#[test]
+fn executor_cpy() {
+    let functions = [
+        Function {
+            frame_size: 8,
+            program: &[
+                Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(0x10EF)), OpType::U32),
+                Op::Cpy(Operand::Val(4), Operand::Val(0), Operand::Val(4)),
+            ],
+        },
+    ];
+
+    let mut exe = Executor::new(&functions);
+    exe.call(0, 0).unwrap();
+
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
+
+    assert_eq!(exe.get_val::<u32>(Operand::Loc(0)), Ok(0x10EF));
+    assert_eq!(exe.get_val::<u32>(Operand::Loc(4)), Ok(0x10EF));
+}
