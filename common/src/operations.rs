@@ -262,6 +262,8 @@ pub enum Op {
     In(BinOp),
     Out(UnOp),
     Fls,
+    Sfd(Operand),
+    Gfd(Operand),
 }
 
 impl Op {
@@ -324,6 +326,8 @@ impl Op {
             In(..) => IN,
             Out(..) => OUT,
             Fls => FLS,
+            Sfd(..) => SFD,
+            Gfd(..) => GFD,
         }
     }
 }
@@ -374,6 +378,8 @@ impl std::fmt::Debug for Op {
             In(b) => write!(f, "in  {:?}", b),
             Out(u) => write!(f, "out {:?}", u),
             Fls => write!(f, "fls"),
+            Sfd(x) => write!(f, "sfd {:?}", x),
+            Gfd(x) => write!(f, "gfd {:?}", x),
         }
     }
 }

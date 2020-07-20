@@ -1256,9 +1256,8 @@ impl<'f> Executor<'f> {
                 let val = self.files.read()?;
                 let (left, right) = self.read_bin_operands(bin)?;
 
-                match right {
-                    Operand::Emp => (),
-                    _ => self.set_val::<u8>(right, if val.is_some() { 1 } else { 0 })?,
+                if right != Operand::Emp {
+                    self.set_val::<u8>(right, if val.is_some() { 1 } else { 0 })?;
                 }
 
                 self.set_val(left, val.unwrap_or(0))?;
@@ -1271,6 +1270,14 @@ impl<'f> Executor<'f> {
             }
             Fls => {
                 self.files.flush()?;
+                Ok(ExecutionSuccess::Ok)
+            }
+            Sfd(x) => {
+                self.files.set_current(self.get_val(x)?)?;
+                Ok(ExecutionSuccess::Ok)
+            }
+            Gfd(x) => {
+                self.set_val(x, self.files.current()?)?;
                 Ok(ExecutionSuccess::Ok)
             }
         };

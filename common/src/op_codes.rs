@@ -132,3 +132,15 @@ pub const SFD: u8 = 0x2B;
 
 /// Get file descriptor.
 pub const GFD: u8 = 0x2C;
+
+/// Memory set zeros.
+pub const ZER: u8 = 0x2D;
+
+/// Memory compare.
+pub const CMP: u8 = 0x2E;
+
+/// Memory copy.
+pub const CPY: u8 = 0x2F;
+
+/// Get interpreter value.
+pub const GIV: u8 = 0x30;

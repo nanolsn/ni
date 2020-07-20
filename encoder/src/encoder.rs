@@ -188,6 +188,14 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             (u, OpType::U8, Mode(0)).encode(buf)
         }
         Fls => FLS.encode(buf),
+        Sfd(x) => {
+            SFD.encode(buf)?;
+            x.encode(buf)
+        }
+        Gfd(x) => {
+            GFD.encode(buf)?;
+            x.encode(buf)
+        }
     }
 }
 

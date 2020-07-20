@@ -213,6 +213,8 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Out(un_op)
         }
         FLS => Fls,
+        SFD => Sfd(decode(bytes)?),
+        GFD => Gfd(decode(bytes)?),
         _ => return Err(DecodeError::UnknownOpCode),
     };
 
