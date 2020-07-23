@@ -1,0 +1,74 @@
+WHITESPACE = _{ " " | "\t" | "\r" }
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
+// New line
+nl_comment = @{ "//" ~ (!"\n" ~ ANY)* ~ "\n" }
+nl = _{ nl_comment | "\n" }
+
+// Integer
+bin = _{ "0" | "1" }
+oct = _{ '0'..'7' }
+dec = _{ '0'..'9' }
+hex = _{ dec | 'a'..'f' | 'A'..'F' }
+int = @{
+      "0b" ~ bin ~ ("_" | bin)*
+    | "0o" ~ oct ~ ("_" | oct)*
+    | "0x" ~ hex ~ ("_" | hex)*
+    | dec ~ ("_" | dec)*
+}
+
+// Identifier
+alpha = _{ 'a'..'z' | 'A'..'Z' }
+idc = _{ alpha | "_" | "@" | "#" }
+idd = _{ dec | idc }
+ident = @{ idc ~ idd* }
+
+// Keywords
+kw_if = @{ "if" ~ !idd }
+kw_then = @{ "then" ~ !idd }
+kw_else = @{ "else" ~ !idd }
+kw_and = @{ "and" ~ !idd }
+kw_or = @{ "or" ~ !idd }
+kw_not = @{ "not" ~ !idd }
+
+// Operators
+operator_neg = { "-" }
+operator_add = { "+" | "-" }
+operator_mul = { "*" | "/" | "%" }
+operator_cmp = { "==" | "!=" | "<=" | "<" | ">=" | ">" }
+
+operator_name = { "len" | "size" | "align" }
+operator_arg = { ident }
+operator = { operator_name ~ "(" ~ operator_arg ~ ")" }
+
+// Constant expression
+const_expr = { ternary | cmp }
+ternary = {
+      kw_if ~ nl?
+    ~ const_expr ~ nl?
+    ~ kw_then ~ nl?
+    ~ const_expr ~ nl?
+    ~ kw_else ~ nl?
+    ~ const_expr
+}
+cmp = { and ~ (operator_cmp ~ and)* }
+and = { or ~ (kw_and ~ or)* }
+or = { not ~ (kw_or ~ not)* }
+not = { kw_not* ~ add }
+add = { mul ~ (operator_add ~ mul)* }
+mul = { term ~ (operator_mul ~ term)* }
+term = _{ "(" ~ const_expr ~ ")" | operator | int | ident }
+
+// Type
+primary = {
+      "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64"
+    | "uw" | "iw" | "f32" | "f64" | "fn"
+}
+array = {
+      "[" ~ "]"
+    | "[" ~ (int | ident) ~ ((int | ident) ~ ",")* ~ "]"
+}
+pointer = { "*" }
+ty = { (primary | ident) ~ (pointer | array)* }
+
+nil = { SOI ~ const_expr ~ EOI }

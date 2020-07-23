@@ -1,5 +1,6 @@
 mod layout;
 mod layout_builder;
+mod parser;
 mod view;
 
 pub use layout::*;
