@@ -1,5 +1,5 @@
 use std::io::{self, Read};
-use crate::common::*;
+use crate::common::{*, bits::*};
 use super::decode::*;
 
 #[derive(Debug)]
@@ -303,10 +303,6 @@ impl Decode<()> for (OpType, Mode, Variant) {
         where
             R: Read,
     {
-        const OP_TYPE_BITS: u8 = 0b0000_1111;
-        const MODE_BITS: u8 = 0b0011_0000;
-        const VARIANT_BITS: u8 = 0b1100_0000;
-
         let meta = bytes.read_u8()?;
 
         let op_type = OpType::new(meta & OP_TYPE_BITS)?;
@@ -324,8 +320,6 @@ impl Decode<()> for OpType {
         where
             R: Read,
     {
-        const OP_TYPE_BITS: u8 = 0b0000_1111;
-
         let meta = bytes.read_u8()?;
         let t = OpType::new(meta & OP_TYPE_BITS)?;
 
@@ -340,13 +334,10 @@ impl Decode<()> for (OpType, OpType) {
         where
             R: Read,
     {
-        const OP_TYPE_0_BITS: u8 = 0b0000_1111;
-        const OP_TYPE_1_BITS: u8 = 0b1111_0000;
-
         let meta = bytes.read_u8()?;
 
-        let t = OpType::new(meta & OP_TYPE_0_BITS)?;
-        let u = OpType::new((meta & OP_TYPE_1_BITS) >> 4)?;
+        let t = OpType::new(meta & OP_TYPE_BITS)?;
+        let u = OpType::new((meta & OP_TYPE_LEFT_BITS) >> 4)?;
 
         Ok((t, u))
     }
@@ -371,10 +362,6 @@ impl Decode<()> for Operand {
         where
             R: Read,
     {
-        const SIZE_BITS: u8 = 0b0000_1111;
-        const KIND_BITS: u8 = 0b0111_0000;
-        const LONG_OPERAND_BIT: u8 = 0b1000_0000;
-
         let meta = bytes.read_u8()?;
 
         if meta & LONG_OPERAND_BIT == 0 {

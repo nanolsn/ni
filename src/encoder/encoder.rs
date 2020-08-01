@@ -1,5 +1,5 @@
 use std::io::{self, Write};
-use crate::common::*;
+use crate::common::{*, bits::LONG_OPERAND_BIT};
 use super::encode::*;
 
 #[derive(Debug)]
@@ -241,8 +241,7 @@ impl Encode for Operand {
         where
             W: Write,
     {
-        const LONG_OPERAND_BIT: u8 = 0b1000_0000;
-        const SHORT_MAX_VALUE: UWord = 0b0111_1111;
+        const SHORT_MAX_VALUE: UWord = !LONG_OPERAND_BIT as UWord;
 
         if let Some(val) = self.get() {
             let bytes = val.to_le_bytes();

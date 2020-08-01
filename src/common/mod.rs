@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+pub mod bits;
 mod expected;
 pub mod op_codes;
 mod operations;
