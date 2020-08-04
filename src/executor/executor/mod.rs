@@ -62,75 +62,6 @@ pub struct Executor<'f> {
     files: Files,
 }
 
-macro_rules! impl_exec_bin {
-    ($name:ident, $tr:ident) => {
-        fn $name<T: $tr, U: $tr + From<T>>(&mut self, bin: BinOp, mode: ArithmeticMode)
-            -> Result<(), ExecutionError> {
-            use ArithmeticMode::*;
-
-            match mode {
-                Wrap => self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y)),
-                Sat => self.update_bin::<T, T, _>(bin, |x, y| x.saturating(y)),
-                Wide => self.update_bin::<T, U, _>(
-                    bin,
-                    |x, y| U::from(x).wrapping(U::from(y)),
-                ),
-                Hand => {
-                    let mut overflowed = false;
-
-                    self.update_bin::<T, T, _>(bin, |x, y| {
-                        if let Some(s) = x.checked(y) {
-                            s
-                        } else {
-                            overflowed = true;
-                            <T as Primary>::zero()
-                        }
-                    })?;
-
-                    if overflowed {
-                        Err(ExecutionError::OperationOverflow)
-                    } else {
-                        Ok(())
-                    }
-                }
-            }
-        }
-    };
-}
-
-macro_rules! impl_exec_un {
-    ($name:ident, $tr:ident) => {
-        fn $name<T: $tr, U: $tr + From<T>>(&mut self, un: UnOp, mode: ArithmeticMode)
-            -> Result<(), ExecutionError> {
-            use ArithmeticMode::*;
-
-            match mode {
-                Wrap => self.update_un::<T, T, _>(un, |x| x.wrapping()),
-                Sat => self.update_un::<T, T, _>(un, |x| x.saturating()),
-                Wide => self.update_un::<T, U, _>(un, |x| U::from(x).wrapping()),
-                Hand => {
-                    let mut overflowed = false;
-
-                    self.update_un::<T, T, _>(un, |x| {
-                        if let Some(s) = x.checked() {
-                            s
-                        } else {
-                            overflowed = true;
-                            <T as Primary>::zero()
-                        }
-                    })?;
-
-                    if overflowed {
-                        Err(ExecutionError::OperationOverflow)
-                    } else {
-                        Ok(())
-                    }
-                }
-            }
-        }
-    };
-}
-
 macro_rules! impl_cnv {
     ($t:ty, $obj:ident, $uid:ident, $x:ident, $y:ident) => {
         match $uid {
@@ -391,9 +322,17 @@ impl<'f> Executor<'f> {
             U: Convert<T>,
     { self.set_val(left, U::convert(self.get_val(right)?)) }
 
-    impl_exec_bin!(exec_add, Add);
-    impl_exec_bin!(exec_sub, Sub);
-    impl_exec_bin!(exec_mul, Mul);
+    fn exec_add<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
+        where T: Add,
+    { self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y)) }
+
+    fn exec_sub<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
+        where T: Sub,
+    { self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y)) }
+
+    fn exec_mul<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
+        where T: Mul,
+    { self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y)) }
 
     fn exec_div<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
         where
@@ -443,9 +382,17 @@ impl<'f> Executor<'f> {
             T: Primary + std::ops::Not<Output=T>,
     { self.update_un::<T, T, _>(un, |y| !y) }
 
-    impl_exec_un!(exec_neg, Neg);
-    impl_exec_un!(exec_inc, Inc);
-    impl_exec_un!(exec_dec, Dec);
+    fn exec_neg<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
+        where T: Neg,
+    { self.update_un::<T, T, _>(un, |x| x.wrapping()) }
+
+    fn exec_inc<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
+        where T: Inc,
+    { self.update_un::<T, T, _>(un, |x| x.wrapping()) }
+
+    fn exec_dec<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
+        where T: Dec,
+    { self.update_un::<T, T, _>(un, |x| x.wrapping()) }
 
     fn exec_ife<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
         where
@@ -626,56 +573,56 @@ impl<'f> Executor<'f> {
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Add(bin, ot, mode) => {
+            Add(bin, ot) => {
                 match ot {
-                    U8 => self.exec_add::<u8, u16>(bin, mode)?,
-                    I8 => self.exec_add::<i8, i16>(bin, mode)?,
-                    U16 => self.exec_add::<u16, u32>(bin, mode)?,
-                    I16 => self.exec_add::<i16, i32>(bin, mode)?,
-                    U32 => self.exec_add::<u32, u64>(bin, mode)?,
-                    I32 => self.exec_add::<i32, i64>(bin, mode)?,
-                    U64 => self.exec_add::<u64, u128>(bin, mode)?,
-                    I64 => self.exec_add::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_add::<UWord, UWord>(bin, mode)?,
-                    Iw => self.exec_add::<IWord, IWord>(bin, mode)?,
-                    F32 => self.exec_add::<f32, f32>(bin, mode)?,
-                    F64 => self.exec_add::<f64, f64>(bin, mode)?,
+                    U8 => self.exec_add::<u8>(bin)?,
+                    I8 => self.exec_add::<i8>(bin)?,
+                    U16 => self.exec_add::<u16>(bin)?,
+                    I16 => self.exec_add::<i16>(bin)?,
+                    U32 => self.exec_add::<u32>(bin)?,
+                    I32 => self.exec_add::<i32>(bin)?,
+                    U64 => self.exec_add::<u64>(bin)?,
+                    I64 => self.exec_add::<i64>(bin)?,
+                    Uw => self.exec_add::<UWord>(bin)?,
+                    Iw => self.exec_add::<IWord>(bin)?,
+                    F32 => self.exec_add::<f32>(bin)?,
+                    F64 => self.exec_add::<f64>(bin)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Sub(bin, ot, mode) => {
+            Sub(bin, ot) => {
                 match ot {
-                    U8 => self.exec_sub::<u8, u16>(bin, mode)?,
-                    I8 => self.exec_sub::<i8, i16>(bin, mode)?,
-                    U16 => self.exec_sub::<u16, u32>(bin, mode)?,
-                    I16 => self.exec_sub::<i16, i32>(bin, mode)?,
-                    U32 => self.exec_sub::<u32, u64>(bin, mode)?,
-                    I32 => self.exec_sub::<i32, i64>(bin, mode)?,
-                    U64 => self.exec_sub::<u64, u128>(bin, mode)?,
-                    I64 => self.exec_sub::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_sub::<UWord, UWord>(bin, mode)?,
-                    Iw => self.exec_sub::<IWord, IWord>(bin, mode)?,
-                    F32 => self.exec_sub::<f32, f32>(bin, mode)?,
-                    F64 => self.exec_sub::<f64, f64>(bin, mode)?,
+                    U8 => self.exec_sub::<u8>(bin)?,
+                    I8 => self.exec_sub::<i8>(bin)?,
+                    U16 => self.exec_sub::<u16>(bin)?,
+                    I16 => self.exec_sub::<i16>(bin)?,
+                    U32 => self.exec_sub::<u32>(bin)?,
+                    I32 => self.exec_sub::<i32>(bin)?,
+                    U64 => self.exec_sub::<u64>(bin)?,
+                    I64 => self.exec_sub::<i64>(bin)?,
+                    Uw => self.exec_sub::<UWord>(bin)?,
+                    Iw => self.exec_sub::<IWord>(bin)?,
+                    F32 => self.exec_sub::<f32>(bin)?,
+                    F64 => self.exec_sub::<f64>(bin)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Mul(bin, ot, mode) => {
+            Mul(bin, ot) => {
                 match ot {
-                    U8 => self.exec_mul::<u8, u16>(bin, mode)?,
-                    I8 => self.exec_mul::<i8, i16>(bin, mode)?,
-                    U16 => self.exec_mul::<u16, u32>(bin, mode)?,
-                    I16 => self.exec_mul::<i16, i32>(bin, mode)?,
-                    U32 => self.exec_mul::<u32, u64>(bin, mode)?,
-                    I32 => self.exec_mul::<i32, i64>(bin, mode)?,
-                    U64 => self.exec_mul::<u64, u128>(bin, mode)?,
-                    I64 => self.exec_mul::<i64, i128>(bin, mode)?,
-                    Uw => self.exec_mul::<UWord, UWord>(bin, mode)?,
-                    Iw => self.exec_mul::<IWord, IWord>(bin, mode)?,
-                    F32 => self.exec_mul::<f32, f32>(bin, mode)?,
-                    F64 => self.exec_mul::<f64, f64>(bin, mode)?,
+                    U8 => self.exec_mul::<u8>(bin)?,
+                    I8 => self.exec_mul::<i8>(bin)?,
+                    U16 => self.exec_mul::<u16>(bin)?,
+                    I16 => self.exec_mul::<i16>(bin)?,
+                    U32 => self.exec_mul::<u32>(bin)?,
+                    I32 => self.exec_mul::<i32>(bin)?,
+                    U64 => self.exec_mul::<u64>(bin)?,
+                    I64 => self.exec_mul::<i64>(bin)?,
+                    Uw => self.exec_mul::<UWord>(bin)?,
+                    Iw => self.exec_mul::<IWord>(bin)?,
+                    F32 => self.exec_mul::<f32>(bin)?,
+                    F64 => self.exec_mul::<f64>(bin)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)
@@ -824,56 +771,56 @@ impl<'f> Executor<'f> {
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Neg(un, ot, mode) => {
+            Neg(un, ot) => {
                 match ot {
-                    U8 => self.exec_neg::<u8, u16>(un, mode)?,
-                    I8 => self.exec_neg::<i8, i16>(un, mode)?,
-                    U16 => self.exec_neg::<u16, u32>(un, mode)?,
-                    I16 => self.exec_neg::<i16, i32>(un, mode)?,
-                    U32 => self.exec_neg::<u32, u64>(un, mode)?,
-                    I32 => self.exec_neg::<i32, i64>(un, mode)?,
-                    U64 => self.exec_neg::<u64, u128>(un, mode)?,
-                    I64 => self.exec_neg::<i64, i128>(un, mode)?,
-                    Uw => self.exec_neg::<UWord, UWord>(un, mode)?,
-                    Iw => self.exec_neg::<IWord, IWord>(un, mode)?,
-                    F32 => self.exec_neg::<f32, f32>(un, mode)?,
-                    F64 => self.exec_neg::<f64, f64>(un, mode)?,
+                    U8 => self.exec_neg::<u8>(un)?,
+                    I8 => self.exec_neg::<i8>(un)?,
+                    U16 => self.exec_neg::<u16>(un)?,
+                    I16 => self.exec_neg::<i16>(un)?,
+                    U32 => self.exec_neg::<u32>(un)?,
+                    I32 => self.exec_neg::<i32>(un)?,
+                    U64 => self.exec_neg::<u64>(un)?,
+                    I64 => self.exec_neg::<i64>(un)?,
+                    Uw => self.exec_neg::<UWord>(un)?,
+                    Iw => self.exec_neg::<IWord>(un)?,
+                    F32 => self.exec_neg::<f32>(un)?,
+                    F64 => self.exec_neg::<f64>(un)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Inc(un, ot, mode) => {
+            Inc(un, ot) => {
                 match ot {
-                    U8 => self.exec_inc::<u8, u16>(un, mode)?,
-                    I8 => self.exec_inc::<i8, i16>(un, mode)?,
-                    U16 => self.exec_inc::<u16, u32>(un, mode)?,
-                    I16 => self.exec_inc::<i16, i32>(un, mode)?,
-                    U32 => self.exec_inc::<u32, u64>(un, mode)?,
-                    I32 => self.exec_inc::<i32, i64>(un, mode)?,
-                    U64 => self.exec_inc::<u64, u128>(un, mode)?,
-                    I64 => self.exec_inc::<i64, i128>(un, mode)?,
-                    Uw => self.exec_inc::<UWord, UWord>(un, mode)?,
-                    Iw => self.exec_inc::<IWord, IWord>(un, mode)?,
-                    F32 => self.exec_inc::<f32, f32>(un, mode)?,
-                    F64 => self.exec_inc::<f64, f64>(un, mode)?,
+                    U8 => self.exec_inc::<u8>(un)?,
+                    I8 => self.exec_inc::<i8>(un)?,
+                    U16 => self.exec_inc::<u16>(un)?,
+                    I16 => self.exec_inc::<i16>(un)?,
+                    U32 => self.exec_inc::<u32>(un)?,
+                    I32 => self.exec_inc::<i32>(un)?,
+                    U64 => self.exec_inc::<u64>(un)?,
+                    I64 => self.exec_inc::<i64>(un)?,
+                    Uw => self.exec_inc::<UWord>(un)?,
+                    Iw => self.exec_inc::<IWord>(un)?,
+                    F32 => self.exec_inc::<f32>(un)?,
+                    F64 => self.exec_inc::<f64>(un)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)
             }
-            Dec(un, ot, mode) => {
+            Dec(un, ot) => {
                 match ot {
-                    U8 => self.exec_dec::<u8, u16>(un, mode)?,
-                    I8 => self.exec_dec::<i8, i16>(un, mode)?,
-                    U16 => self.exec_dec::<u16, u32>(un, mode)?,
-                    I16 => self.exec_dec::<i16, i32>(un, mode)?,
-                    U32 => self.exec_dec::<u32, u64>(un, mode)?,
-                    I32 => self.exec_dec::<i32, i64>(un, mode)?,
-                    U64 => self.exec_dec::<u64, u128>(un, mode)?,
-                    I64 => self.exec_dec::<i64, i128>(un, mode)?,
-                    Uw => self.exec_dec::<UWord, UWord>(un, mode)?,
-                    Iw => self.exec_dec::<IWord, IWord>(un, mode)?,
-                    F32 => self.exec_dec::<f32, f32>(un, mode)?,
-                    F64 => self.exec_dec::<f64, f64>(un, mode)?,
+                    U8 => self.exec_dec::<u8>(un)?,
+                    I8 => self.exec_dec::<i8>(un)?,
+                    U16 => self.exec_dec::<u16>(un)?,
+                    I16 => self.exec_dec::<i16>(un)?,
+                    U32 => self.exec_dec::<u32>(un)?,
+                    I32 => self.exec_dec::<i32>(un)?,
+                    U64 => self.exec_dec::<u64>(un)?,
+                    I64 => self.exec_dec::<i64>(un)?,
+                    Uw => self.exec_dec::<UWord>(un)?,
+                    Iw => self.exec_dec::<IWord>(un)?,
+                    F32 => self.exec_dec::<f32>(un)?,
+                    F64 => self.exec_dec::<f64>(un)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)

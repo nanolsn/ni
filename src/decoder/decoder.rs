@@ -50,7 +50,7 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
         END => End(decode(bytes)?),
         SLP => Slp(decode(bytes)?),
         SET => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Set(bin_op, op_type)
         }
         CNV => {
@@ -58,23 +58,23 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Cnv(decode(bytes)?, decode(bytes)?, t, u)
         }
         ADD => {
-            let (bin_op, op_type, mode) = decode(bytes)?;
-            Add(bin_op, op_type, mode)
+            let (bin_op, op_type) = decode(bytes)?;
+            Add(bin_op, op_type)
         }
         SUB => {
-            let (bin_op, op_type, mode) = decode(bytes)?;
-            Sub(bin_op, op_type, mode)
+            let (bin_op, op_type) = decode(bytes)?;
+            Sub(bin_op, op_type)
         }
         MUL => {
-            let (bin_op, op_type, mode) = decode(bytes)?;
-            Mul(bin_op, op_type, mode)
+            let (bin_op, op_type) = decode(bytes)?;
+            Mul(bin_op, op_type)
         }
         DIV => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Div(bin_op, op_type)
         }
         MOD => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Mod(bin_op, op_type)
         }
         SHL => {
@@ -90,15 +90,15 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Shr(x, y, op_type)
         }
         AND => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             And(bin_op, op_type)
         }
         OR => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Or(bin_op, op_type)
         }
         XOR => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Xor(bin_op, op_type)
         }
         NOT => {
@@ -108,22 +108,22 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Not(un_op, op_type)
         }
         NEG => {
-            let (op_type, mode, var) = decode(bytes)?;
+            let (op_type, _, var) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
-            Neg(un_op, op_type, mode.into_arithmetic()?)
+            Neg(un_op, op_type)
         }
         INC => {
-            let (op_type, mode, var) = decode(bytes)?;
+            let (op_type, _, var) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
-            Inc(un_op, op_type, mode.into_arithmetic()?)
+            Inc(un_op, op_type)
         }
         DEC => {
-            let (op_type, mode, var) = decode(bytes)?;
+            let (op_type, _, var) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
-            Dec(un_op, op_type, mode.into_arithmetic()?)
+            Dec(un_op, op_type)
         }
         GO => Go(decode(bytes)?),
         IFT => {
@@ -139,51 +139,51 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Iff(un_op, op_type)
         }
         IFE => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ife(bin_op, op_type)
         }
         IFL => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ifl(bin_op, op_type)
         }
         IFG => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ifg(bin_op, op_type)
         }
         INE => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ine(bin_op, op_type)
         }
         INL => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Inl(bin_op, op_type)
         }
         ING => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ing(bin_op, op_type)
         }
         IFA => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ifa(bin_op, op_type)
         }
         IFO => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ifo(bin_op, op_type)
         }
         IFX => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ifx(bin_op, op_type)
         }
         INA => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ina(bin_op, op_type)
         }
         INO => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Ino(bin_op, op_type)
         }
         INX => {
-            let (bin_op, op_type, _) = decode(bytes)?;
+            let (bin_op, op_type) = decode(bytes)?;
             Inx(bin_op, op_type)
         }
         APP => App(decode(bytes)?),
@@ -247,17 +247,17 @@ impl Decode<()> for Op {
     { decode_op(bytes) }
 }
 
-impl Decode<()> for (BinOp, OpType, ArithmeticMode) {
+impl Decode<()> for (BinOp, OpType) {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
         where
             R: Read,
     {
-        let (op_type, mode, variant) = decode(bytes)?;
+        let (op_type, _, variant) = decode(bytes)?;
         let bin_op = decode_with(bytes, variant)?;
 
-        Ok((bin_op, op_type, mode.into_arithmetic()?))
+        Ok((bin_op, op_type))
     }
 }
 
@@ -428,14 +428,13 @@ mod tests {
     #[test]
     fn decode_un_short() {
         let code = [
-            // inc hand i16 loc(16)
-            INC, 0b0011_0011, 16,
+            // inc i16 loc(16)
+            INC, 0b0000_0011, 16,
         ];
 
         let expected = Op::Inc(
             UnOp::new(Operand::Loc(16)),
             OpType::I16,
-            ArithmeticMode::Hand,
         );
 
         let mut code = code.as_ref();
@@ -448,14 +447,13 @@ mod tests {
     #[test]
     fn decode_un_long() {
         let code = [
-            // inc hand i16 ind(16)
-            INC, 0b0011_0011, 0b1001_0000, 16,
+            // inc i16 ind(16)
+            INC, 0b0000_0011, 0b1001_0000, 16,
         ];
 
         let expected = Op::Inc(
             UnOp::new(Operand::Ind(16)),
             OpType::I16,
-            ArithmeticMode::Hand,
         );
 
         let mut code = code.as_ref();
@@ -475,7 +473,6 @@ mod tests {
         let expected = Op::Inc(
             UnOp::new(Operand::Ind(16)).with_first(Operand::Ref(1)),
             OpType::I16,
-            ArithmeticMode::default(),
         );
 
         let mut code = code.as_ref();
@@ -514,7 +511,6 @@ mod tests {
         let expected = Op::Add(
             BinOp::new(Operand::Loc(8), Operand::Ind(16)),
             OpType::U32,
-            ArithmeticMode::default(),
         );
 
         let mut code = code.as_ref();

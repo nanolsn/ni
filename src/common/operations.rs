@@ -5,7 +5,6 @@ pub enum UndefinedOperation {
     OpType,
     Kind,
     Variant,
-    ArithmeticMode,
     ParameterMode,
 }
 
@@ -213,9 +212,9 @@ pub enum Op {
     Slp(Operand),
     Set(BinOp, OpType),
     Cnv(Operand, Operand, OpType, OpType),
-    Add(BinOp, OpType, ArithmeticMode),
-    Sub(BinOp, OpType, ArithmeticMode),
-    Mul(BinOp, OpType, ArithmeticMode),
+    Add(BinOp, OpType),
+    Sub(BinOp, OpType),
+    Mul(BinOp, OpType),
     Div(BinOp, OpType),
     Mod(BinOp, OpType),
     Shl(Operand, Operand, OpType),
@@ -224,9 +223,9 @@ pub enum Op {
     Or(BinOp, OpType),
     Xor(BinOp, OpType),
     Not(UnOp, OpType),
-    Neg(UnOp, OpType, ArithmeticMode),
-    Inc(UnOp, OpType, ArithmeticMode),
-    Dec(UnOp, OpType, ArithmeticMode),
+    Neg(UnOp, OpType),
+    Inc(UnOp, OpType),
+    Dec(UnOp, OpType),
     Go(Operand),
     Ift(UnOp, OpType),
     Iff(UnOp, OpType),
@@ -336,9 +335,9 @@ impl std::fmt::Debug for Op {
             Slp(x) => write!(f, "slp {:?}", x),
             Set(b, t) => write!(f, "set {:?} {:?}", t, b),
             Cnv(x, y, t, v) => write!(f, "cnv {:?} {:?} {:?} {:?}", t, v, x, y),
-            Add(b, t, m) => write!(f, "add {:?} {:?} {:?}", m, t, b),
-            Sub(b, t, m) => write!(f, "sub {:?} {:?} {:?}", m, t, b),
-            Mul(b, t, m) => write!(f, "mul {:?} {:?} {:?}", m, t, b),
+            Add(b, t) => write!(f, "add {:?} {:?}", t, b),
+            Sub(b, t) => write!(f, "sub {:?} {:?}", t, b),
+            Mul(b, t) => write!(f, "mul {:?} {:?}", t, b),
             Div(b, t) => write!(f, "div {:?} {:?}", t, b),
             Mod(b, t) => write!(f, "mod {:?} {:?}", t, b),
             Shl(x, y, t) => write!(f, "shl {:?} {:?} {:?}", t, x, y),
@@ -347,9 +346,9 @@ impl std::fmt::Debug for Op {
             Or(b, t) => write!(f, "or  {:?} {:?}", t, b),
             Xor(b, t) => write!(f, "xor {:?} {:?}", t, b),
             Not(u, t) => write!(f, "not {:?} {:?}", t, u),
-            Neg(u, t, m) => write!(f, "neg {:?} {:?} {:?}", m, t, u),
-            Inc(u, t, m) => write!(f, "inc {:?} {:?} {:?}", m, t, u),
-            Dec(u, t, m) => write!(f, "dec {:?} {:?} {:?}", m, t, u),
+            Neg(u, t) => write!(f, "neg {:?} {:?}", t, u),
+            Inc(u, t) => write!(f, "inc {:?} {:?}", t, u),
+            Dec(u, t) => write!(f, "dec {:?} {:?}", t, u),
             Go(x) => write!(f, "go  {:?}", x),
             Ift(u, t) => write!(f, "ift {:?} {:?}", t, u),
             Iff(u, t) => write!(f, "iff {:?} {:?}", t, u),
@@ -482,71 +481,8 @@ impl std::fmt::Debug for OpType {
 pub struct Mode(pub u8);
 
 impl Mode {
-    pub fn into_arithmetic(self) -> Result<ArithmeticMode, UndefinedOperation> {
-        ArithmeticMode::new(self.0)
-    }
-
     pub fn into_parameter(self) -> Result<ParameterMode, UndefinedOperation> {
         ParameterMode::new(self.0)
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum ArithmeticMode {
-    /// Wrapping mode.
-    Wrap,
-
-    /// Saturating mode.
-    Sat,
-
-    /// Wide mode.
-    Wide,
-
-    /// Handling mode.
-    Hand,
-}
-
-impl ArithmeticMode {
-    pub fn new(value: u8) -> Result<Self, UndefinedOperation> {
-        use ArithmeticMode::*;
-
-        Ok(match value {
-            0 => Wrap,
-            1 => Sat,
-            2 => Wide,
-            3 => Hand,
-            _ => return Err(UndefinedOperation::ArithmeticMode),
-        })
-    }
-
-    pub fn as_byte(&self) -> u8 {
-        use ArithmeticMode::*;
-
-        match self {
-            Wrap => 0,
-            Sat => 1,
-            Wide => 2,
-            Hand => 3,
-        }
-    }
-
-    pub fn as_mode(&self) -> Mode { Mode(self.as_byte()) }
-}
-
-impl Default for ArithmeticMode {
-    fn default() -> Self { ArithmeticMode::Wrap }
-}
-
-impl std::fmt::Debug for ArithmeticMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use ArithmeticMode::*;
-
-        match self {
-            Wrap => write!(f, "wrap"),
-            Sat => write!(f, "sat "),
-            Wide => write!(f, "wide"),
-            Hand => write!(f, "hand"),
-        }
     }
 }
 

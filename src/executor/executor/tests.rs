@@ -161,33 +161,20 @@ fn executor_shr() {
 fn executor_add() {
     let functions = [
         Function {
-            frame_size: 8,
+            frame_size: 4,
             program: &[
                 Op::Add(
                     BinOp::new(Operand::Loc(0), Operand::Val(12)),
                     OpType::I32,
-                    ArithmeticMode::Wrap,
                 ),
                 Op::Add(
                     BinOp::new(Operand::Loc(0), Operand::Val(u32::MAX as UWord)),
                     OpType::I32,
-                    ArithmeticMode::Wrap,
-                ),
-                Op::Add(
-                    BinOp::new(Operand::Loc(0), Operand::Val(i32::MAX as UWord)),
-                    OpType::I32,
-                    ArithmeticMode::Sat,
-                ),
-                Op::Add(
-                    BinOp::new(Operand::Loc(0), Operand::Val(i32::MAX as UWord)),
-                    OpType::I32,
-                    ArithmeticMode::Wide,
                 ),
                 Op::Set(BinOp::new(Operand::Loc(0), Operand::Val(1)), OpType::I32),
                 Op::Add(
                     BinOp::new(Operand::Loc(0), Operand::Val(i32::MAX as UWord)),
                     OpType::I32,
-                    ArithmeticMode::Hand,
                 ),
             ],
         },
@@ -203,13 +190,10 @@ fn executor_add() {
     assert_eq!(exe.get_val::<i32>(Operand::Loc(0)), Ok(11));
 
     assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
-    assert_eq!(exe.get_val::<i32>(Operand::Loc(0)), Ok(i32::MAX));
+    assert_eq!(exe.get_val::<i32>(Operand::Loc(0)), Ok(1));
 
     assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
-    assert_eq!(exe.get_val::<i64>(Operand::Loc(0)), Ok(i32::MAX as i64 * 2));
-
-    assert_eq!(exe.execute(), Executed::Ok(ExecutionSuccess::Ok));
-    assert_eq!(exe.execute(), Executed::Err(ExecutionError::OperationOverflow));
+    assert_eq!(exe.get_val::<i32>(Operand::Loc(0)), Ok(i32::MIN));
 }
 
 #[test]
@@ -223,12 +207,10 @@ fn executor_mul() {
                 Op::Mul(
                     BinOp::new(Operand::Loc(0), Operand::Val(2)),
                     OpType::I32,
-                    ArithmeticMode::default(),
                 ),
                 Op::Mul(
                     BinOp::new(Operand::Loc(4), Operand::Val(2)),
                     OpType::I32,
-                    ArithmeticMode::default(),
                 ),
             ],
         },
@@ -278,7 +260,7 @@ fn executor_go() {
         Function {
             frame_size: 4,
             program: &[
-                Op::Inc(UnOp::new(Operand::Loc(0)), OpType::U32, ArithmeticMode::default()),
+                Op::Inc(UnOp::new(Operand::Loc(0)), OpType::U32),
                 Op::Go(Operand::Val(0)),
             ],
         },
@@ -443,12 +425,10 @@ fn executor_call_fn() {
                 Op::Add(
                     BinOp::new(Operand::Ret(0), Operand::Loc(0)),
                     OpType::I32,
-                    ArithmeticMode::default(),
                 ),
                 Op::Add(
                     BinOp::new(Operand::Ret(0), Operand::Loc(4)),
                     OpType::I32,
-                    ArithmeticMode::default(),
                 ),
                 Op::Ret(UnOp::new(Operand::Emp), OpType::U8),
             ],
@@ -495,7 +475,7 @@ fn executor_glb() {
         Function {
             frame_size: 2,
             program: &[
-                Op::Inc(UnOp::new(Operand::Loc(0)), OpType::U16, ArithmeticMode::default()),
+                Op::Inc(UnOp::new(Operand::Loc(0)), OpType::U16),
                 Op::Set(BinOp::new(Operand::Glb(0), Operand::Loc(0)), OpType::U16),
                 Op::Ret(UnOp::new(Operand::Emp), OpType::U8),
             ],
@@ -616,7 +596,7 @@ fn executor_hello() {
                 // out hello{i}
                 Op::Out(UnOp::new(Operand::Loc(0)).with_first(Operand::Loc(6))),
                 // inc i
-                Op::Inc(UnOp::new(Operand::Loc(6)), OpType::Uw, ArithmeticMode::default()),
+                Op::Inc(UnOp::new(Operand::Loc(6)), OpType::Uw),
                 // ifl i 6
                 Op::Ifl(BinOp::new(Operand::Loc(6), Operand::Val(6)), OpType::Uw),
                 // go loop
@@ -673,7 +653,6 @@ fn executor_mul_from_in() {
                 Op::Mul(
                     BinOp::new(Operand::Loc(3), Operand::Loc(1)),
                     OpType::U8,
-                    ArithmeticMode::default(),
                 ),
                 // end
                 Op::End(Operand::Loc(3)),

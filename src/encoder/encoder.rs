@@ -43,17 +43,17 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             x.encode(buf)?;
             y.encode(buf)
         }
-        Add(b, t, m) => {
+        Add(b, t) => {
             ADD.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)
+            (b, t).encode(buf)
         }
-        Sub(b, t, m) => {
+        Sub(b, t) => {
             SUB.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)
+            (b, t).encode(buf)
         }
-        Mul(b, t, m) => {
+        Mul(b, t) => {
             MUL.encode(buf)?;
-            (b, t, m.as_mode()).encode(buf)
+            (b, t).encode(buf)
         }
         Div(b, t) => {
             DIV.encode(buf)?;
@@ -91,17 +91,17 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             NOT.encode(buf)?;
             (u, t).encode(buf)
         }
-        Neg(u, t, m) => {
+        Neg(u, t) => {
             NEG.encode(buf)?;
-            (u, t, m.as_mode()).encode(buf)
+            (u, t).encode(buf)
         }
-        Inc(u, t, m) => {
+        Inc(u, t) => {
             INC.encode(buf)?;
-            (u, t, m.as_mode()).encode(buf)
+            (u, t).encode(buf)
         }
-        Dec(u, t, m) => {
+        Dec(u, t) => {
             DEC.encode(buf)?;
-            (u, t, m.as_mode()).encode(buf)
+            (u, t).encode(buf)
         }
         Go(x) => {
             GO.encode(buf)?;
@@ -181,11 +181,11 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
         }
         In(b) => {
             IN.encode(buf)?;
-            (b, OpType::U8, Mode(0)).encode(buf)
+            (b, OpType::U8).encode(buf)
         }
         Out(u) => {
             OUT.encode(buf)?;
-            (u, OpType::U8, Mode(0)).encode(buf)
+            (u, OpType::U8).encode(buf)
         }
         Fls => FLS.encode(buf),
         Sfd(x) => {
@@ -294,20 +294,6 @@ impl Encode for (OpType, Mode, Variant) {
     }
 }
 
-impl Encode for (BinOp, OpType, Mode) {
-    type Err = EncodeError;
-
-    fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
-    {
-        let (bin_op, op_type, mode) = self;
-
-        (*op_type, *mode, bin_op.variant()).encode(buf)?;
-        bin_op.encode(buf)
-    }
-}
-
 impl Encode for (UnOp, OpType, Mode) {
     type Err = EncodeError;
 
@@ -330,7 +316,9 @@ impl Encode for (BinOp, OpType) {
             W: Write,
     {
         let (bin_op, op_type) = self;
-        (*bin_op, *op_type, Mode(0)).encode(buf)
+
+        (*op_type, Mode(0), bin_op.variant()).encode(buf)?;
+        bin_op.encode(buf)
     }
 }
 
@@ -455,7 +443,6 @@ mod tests {
         let op = Op::Inc(
             UnOp::new(Operand::Ind(16)).with_first(Operand::Ref(1)),
             OpType::I16,
-            ArithmeticMode::default(),
         );
 
         let mut buf = vec![];
@@ -482,7 +469,6 @@ mod tests {
         let op = Op::Add(
             BinOp::new(Operand::Loc(256), Operand::Ind(257)),
             OpType::U32,
-            ArithmeticMode::default(),
         );
 
         let mut buf = vec![];
