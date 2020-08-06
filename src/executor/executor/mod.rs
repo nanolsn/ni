@@ -490,7 +490,7 @@ impl<'f> Executor<'f> {
         Ok(self.get_val::<T>(left)? ^ self.get_val::<T>(right)? == T::zero())
     }
 
-    fn exec_par<T>(&mut self, un: UnOp, mode: ParameterMode) -> Result<(), ExecutionError>
+    fn exec_par<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
         where
             T: Primary,
     {
@@ -498,17 +498,8 @@ impl<'f> Executor<'f> {
         let parameter_loc = self.parameter_ptr.wrapping_add(frame_size);
         self.parameter_ptr = self.parameter_ptr.wrapping_add(T::SIZE as UWord);
 
-        match mode {
-            ParameterMode::Set => {
-                let val = self.get_un(un)?;
-                self.set_val::<T>(Operand::Loc(parameter_loc), val)?;
-            }
-            ParameterMode::Emp => {}
-            ParameterMode::Zer => self.set_val::<T>(
-                Operand::Loc(parameter_loc),
-                T::zero(),
-            )?,
-        }
+        let val = self.get_un(un)?;
+        self.set_val::<T>(Operand::Loc(parameter_loc), val)?;
 
         Ok(())
     }
@@ -1155,20 +1146,20 @@ impl<'f> Executor<'f> {
                 self.app(self.get_val(x)?)?;
                 Ok(ExecutionSuccess::Ok)
             }
-            Par(un, ot, mode) => {
+            Par(un, ot) => {
                 match ot {
-                    U8 => self.exec_par::<u8>(un, mode)?,
-                    I8 => self.exec_par::<i8>(un, mode)?,
-                    U16 => self.exec_par::<u16>(un, mode)?,
-                    I16 => self.exec_par::<i16>(un, mode)?,
-                    U32 => self.exec_par::<u32>(un, mode)?,
-                    I32 => self.exec_par::<i32>(un, mode)?,
-                    U64 => self.exec_par::<u64>(un, mode)?,
-                    I64 => self.exec_par::<i64>(un, mode)?,
-                    Uw => self.exec_par::<UWord>(un, mode)?,
-                    Iw => self.exec_par::<IWord>(un, mode)?,
-                    F32 => self.exec_par::<f32>(un, mode)?,
-                    F64 => self.exec_par::<f64>(un, mode)?,
+                    U8 => self.exec_par::<u8>(un)?,
+                    I8 => self.exec_par::<i8>(un)?,
+                    U16 => self.exec_par::<u16>(un)?,
+                    I16 => self.exec_par::<i16>(un)?,
+                    U32 => self.exec_par::<u32>(un)?,
+                    I32 => self.exec_par::<i32>(un)?,
+                    U64 => self.exec_par::<u64>(un)?,
+                    I64 => self.exec_par::<i64>(un)?,
+                    Uw => self.exec_par::<UWord>(un)?,
+                    Iw => self.exec_par::<IWord>(un)?,
+                    F32 => self.exec_par::<f32>(un)?,
+                    F64 => self.exec_par::<f64>(un)?,
                 }
 
                 Ok(ExecutionSuccess::Ok)

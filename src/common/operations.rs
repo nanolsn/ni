@@ -5,7 +5,6 @@ pub enum UndefinedOperation {
     OpType,
     Kind,
     Variant,
-    ParameterMode,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -242,7 +241,7 @@ pub enum Op {
     Ino(BinOp, OpType),
     Inx(BinOp, OpType),
     App(Operand),
-    Par(UnOp, OpType, ParameterMode),
+    Par(UnOp, OpType),
     Clf(Operand),
     Ret(UnOp, OpType),
     In(BinOp),
@@ -365,7 +364,7 @@ impl std::fmt::Debug for Op {
             Ino(b, t) => write!(f, "ino {:?} {:?}", t, b),
             Inx(b, t) => write!(f, "inx {:?} {:?}", t, b),
             App(x) => write!(f, "app {:?}", x),
-            Par(u, t, m) => write!(f, "par {:?} {:?} {:?}", m, t, u),
+            Par(u, t) => write!(f, "par {:?} {:?}", t, u),
             Clf(x) => write!(f, "clf {:?}", x),
             Ret(u, t) => write!(f, "ret {:?} {:?}", t, u),
             In(b) => write!(f, "in  {:?}", b),
@@ -473,68 +472,6 @@ impl std::fmt::Debug for OpType {
             Iw => write!(f, "iw "),
             F32 => write!(f, "f32"),
             F64 => write!(f, "f64"),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Mode(pub u8);
-
-impl Mode {
-    pub fn into_parameter(self) -> Result<ParameterMode, UndefinedOperation> {
-        ParameterMode::new(self.0)
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum ParameterMode {
-    /// Set mode.
-    Set,
-
-    /// Empty mode.
-    Emp,
-
-    /// Set zeroes mode.
-    Zer,
-}
-
-impl ParameterMode {
-    pub fn new(value: u8) -> Result<Self, UndefinedOperation> {
-        use ParameterMode::*;
-
-        Ok(match value {
-            0 => Set,
-            1 => Emp,
-            2 => Zer,
-            _ => return Err(UndefinedOperation::ParameterMode),
-        })
-    }
-
-    pub fn as_byte(&self) -> u8 {
-        use ParameterMode::*;
-
-        match self {
-            Set => 0,
-            Emp => 1,
-            Zer => 2,
-        }
-    }
-
-    pub fn as_mode(&self) -> Mode { Mode(self.as_byte()) }
-}
-
-impl Default for ParameterMode {
-    fn default() -> Self { ParameterMode::Set }
-}
-
-impl std::fmt::Debug for ParameterMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use ParameterMode::*;
-
-        match self {
-            Set => write!(f, "set"),
-            Emp => write!(f, "emp"),
-            Zer => write!(f, "zer"),
         }
     }
 }

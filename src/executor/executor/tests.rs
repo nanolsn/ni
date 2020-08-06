@@ -412,7 +412,6 @@ fn executor_call_fn() {
                 Op::Par(
                     UnOp::new(Operand::Val(2)),
                     OpType::I32,
-                    ParameterMode::default(),
                 ),
                 Op::Clf(Operand::Val(0)),
                 Op::Ret(UnOp::new(Operand::Emp), OpType::U8),
@@ -466,7 +465,6 @@ fn executor_glb() {
                 Op::Par(
                     UnOp::new(Operand::Val(6)),
                     OpType::U16,
-                    ParameterMode::default(),
                 ),
                 Op::Clf(Operand::Val(0)),
                 Op::Ret(UnOp::new(Operand::Emp), OpType::U8),
@@ -523,13 +521,11 @@ fn executor_gcd() {
                 Op::Par(
                     UnOp::new(Operand::Loc(4)),
                     OpType::U32,
-                    ParameterMode::default(),
                 ),
                 // par y
                 Op::Par(
                     UnOp::new(Operand::Loc(8)),
                     OpType::U32,
-                    ParameterMode::default(),
                 ),
                 // clf result
                 Op::Clf(Operand::Val(0)),

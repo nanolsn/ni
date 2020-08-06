@@ -102,38 +102,38 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
             Xor(bin_op, op_type)
         }
         NOT => {
-            let (op_type, _, var) = decode(bytes)?;
+            let (op_type, var): (OpType, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             Not(un_op, op_type)
         }
         NEG => {
-            let (op_type, _, var) = decode(bytes)?;
+            let (op_type, var): (OpType, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             Neg(un_op, op_type)
         }
         INC => {
-            let (op_type, _, var) = decode(bytes)?;
+            let (op_type, var): (OpType, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             Inc(un_op, op_type)
         }
         DEC => {
-            let (op_type, _, var) = decode(bytes)?;
+            let (op_type, var): (OpType, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             Dec(un_op, op_type)
         }
         GO => Go(decode(bytes)?),
         IFT => {
-            let (op_type, _, var) = decode(bytes)?;
+            let (op_type, var): (OpType, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             Ift(un_op, op_type)
         }
         IFF => {
-            let (op_type, _, var) = decode(bytes)?;
+            let (op_type, var): (OpType, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             Iff(un_op, op_type)
@@ -188,26 +188,26 @@ fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
         }
         APP => App(decode(bytes)?),
         PAR => {
-            let (op_type, mode, var) = decode(bytes)?;
+            let (op_type, var): (OpType, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
-            Par(un_op, op_type, mode.into_parameter()?)
+            Par(un_op, op_type)
         }
         CLF => Clf(decode(bytes)?),
         RET => {
-            let (op_type, _, var) = decode(bytes)?;
+            let (op_type, var): (OpType, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             Ret(un_op, op_type)
         }
         IN => {
-            let (_, _, var): (OpType, Mode, Variant) = decode(bytes)?;
+            let (_, var): (OpType, Variant) = decode(bytes)?;
             let bin_op = decode_with(bytes, var)?;
 
             In(bin_op)
         }
         OUT => {
-            let (_, _, var): (OpType, Mode, Variant) = decode(bytes)?;
+            let (_, var): (OpType, Variant) = decode(bytes)?;
             let un_op = decode_with(bytes, var)?;
 
             Out(un_op)
@@ -254,7 +254,7 @@ impl Decode<()> for (BinOp, OpType) {
         where
             R: Read,
     {
-        let (op_type, _, variant) = decode(bytes)?;
+        let (op_type, variant) = decode(bytes)?;
         let bin_op = decode_with(bytes, variant)?;
 
         Ok((bin_op, op_type))
@@ -296,7 +296,7 @@ impl Decode<Variant> for UnOp {
     }
 }
 
-impl Decode<()> for (OpType, Mode, Variant) {
+impl Decode<()> for (OpType, Variant) {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
@@ -306,10 +306,9 @@ impl Decode<()> for (OpType, Mode, Variant) {
         let meta = bytes.read_u8()?;
 
         let op_type = OpType::new(meta & OP_TYPE_BITS)?;
-        let mode = Mode((meta & MODE_BITS) >> 4);
         let variant = Variant::new((meta & VARIANT_BITS) >> 6)?;
 
-        Ok((op_type, mode, variant))
+        Ok((op_type, variant))
     }
 }
 
@@ -350,7 +349,7 @@ impl Decode<()> for UnOp {
         where
             R: Read,
     {
-        let (_, _, var): (_, _, Variant) = decode(bytes)?;
+        let (_, var): (_, Variant) = decode(bytes)?;
         decode_with(bytes, var)
     }
 }
@@ -670,7 +669,6 @@ mod tests {
         let expected = Op::Par(
             UnOp::new(Operand::Ref(8)).with_first(Operand::Val(6)),
             OpType::F32,
-            ParameterMode::Emp,
         );
 
         let mut code = code.as_ref();

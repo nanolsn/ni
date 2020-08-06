@@ -167,9 +167,9 @@ fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
             APP.encode(buf)?;
             x.encode(buf)
         }
-        Par(u, t, m) => {
+        Par(u, t) => {
             PAR.encode(buf)?;
-            (u, t, m.as_mode()).encode(buf)
+            (u, t).encode(buf)
         }
         Clf(x) => {
             CLF.encode(buf)?;
@@ -278,33 +278,18 @@ impl Encode for OpType {
     { self.as_byte().encode(buf) }
 }
 
-impl Encode for (OpType, Mode, Variant) {
+impl Encode for (OpType, Variant) {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
         where
             W: Write,
     {
-        let (op_type, Mode(mode), variant) = self;
+        let (op_type, variant) = self;
         let mut meta = variant.as_byte() << 6;
-        meta |= *mode << 4;
         meta |= op_type.as_byte();
 
         meta.encode(buf)
-    }
-}
-
-impl Encode for (UnOp, OpType, Mode) {
-    type Err = EncodeError;
-
-    fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
-    {
-        let (un_op, op_type, mode) = self;
-
-        (*op_type, *mode, un_op.variant()).encode(buf)?;
-        un_op.encode(buf)
     }
 }
 
@@ -317,7 +302,7 @@ impl Encode for (BinOp, OpType) {
     {
         let (bin_op, op_type) = self;
 
-        (*op_type, Mode(0), bin_op.variant()).encode(buf)?;
+        (*op_type, bin_op.variant()).encode(buf)?;
         bin_op.encode(buf)
     }
 }
@@ -330,7 +315,9 @@ impl Encode for (UnOp, OpType) {
             W: Write,
     {
         let (un_op, op_type) = self;
-        (*un_op, *op_type, Mode(0)).encode(buf)
+
+        (*op_type, un_op.variant()).encode(buf)?;
+        un_op.encode(buf)
     }
 }
 
@@ -564,13 +551,12 @@ mod tests {
         let op = Op::Par(
             UnOp::new(Operand::Ref(8)).with_first(Operand::Val(6)),
             OpType::F32,
-            ParameterMode::Emp,
         );
 
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();
 
-        assert_eq!(buf, &[PAR, 0b0101_1011, 0b1100_0000, 8, 0b1011_0000, 6]);
+        assert_eq!(buf, &[PAR, 0b0100_1011, 0b1100_0000, 8, 0b1011_0000, 6]);
     }
 
     #[test]
