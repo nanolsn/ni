@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests;
 
-use crate::common::*;
 use super::{
     files::{Files, FilesError},
     memory::*,
     primary::*,
 };
+use crate::common::*;
 
 #[derive(Debug)]
 pub struct Function<'f> {
@@ -35,11 +35,15 @@ pub enum ExecutionError {
 }
 
 impl From<MemoryError> for ExecutionError {
-    fn from(e: MemoryError) -> Self { ExecutionError::MemoryError(e) }
+    fn from(e: MemoryError) -> Self {
+        ExecutionError::MemoryError(e)
+    }
 }
 
 impl From<FilesError> for ExecutionError {
-    fn from(e: FilesError) -> Self { ExecutionError::FilesError(e) }
+    fn from(e: FilesError) -> Self {
+        ExecutionError::FilesError(e)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -102,7 +106,8 @@ impl<'f> Executor<'f> {
     }
 
     fn app(&mut self, function_id: UWord) -> Result<(), ExecutionError> {
-        let f = self.functions
+        let f = self
+            .functions
             .get(function_id as usize)
             .ok_or(ExecutionError::UnknownFunction(function_id))?;
 
@@ -120,7 +125,8 @@ impl<'f> Executor<'f> {
     }
 
     fn clf(&mut self, ret_val_ptr: UWord) -> Result<(), ExecutionError> {
-        let current_fn = self.call_stack
+        let current_fn = self
+            .call_stack
             .last_mut()
             .ok_or(ExecutionError::EndOfProgram)?;
 
@@ -158,7 +164,9 @@ impl<'f> Executor<'f> {
     }
 
     fn current_op(&self) -> Result<&Op, ExecutionError> {
-        self.current_call()?.function.program
+        self.current_call()?
+            .function
+            .program
             .get(self.program_counter as usize)
             .ok_or(ExecutionError::EndOfProgram)
     }
@@ -176,53 +184,55 @@ impl<'f> Executor<'f> {
     }
 
     fn get_val<T>(&self, operand: Operand) -> Result<T, ExecutionError>
-        where
-            T: Primary,
+    where
+        T: Primary,
     {
         Ok(match operand {
-            Operand::Loc(loc) => self.memory.get(
-                self.current_call()?.base_ptr.wrapping_add(loc)
-            )?,
-            Operand::Ind(ptr) => if ptr == 0 {
-                return Err(ExecutionError::NullPointerDereference);
-            } else {
-                self.memory.get(
-                    self.memory.get(self.current_call()?.base_ptr.wrapping_add(ptr))?
-                )?
+            Operand::Loc(loc) => self
+                .memory
+                .get(self.current_call()?.base_ptr.wrapping_add(loc))?,
+            Operand::Ind(ptr) => {
+                if ptr == 0 {
+                    return Err(ExecutionError::NullPointerDereference);
+                } else {
+                    self.memory.get(
+                        self.memory
+                            .get(self.current_call()?.base_ptr.wrapping_add(ptr))?,
+                    )?
+                }
             }
-            Operand::Ret(ret) => self.memory.get(
-                self.current_call()?.ret_val_ptr.wrapping_add(ret)
-            )?,
+            Operand::Ret(ret) => self
+                .memory
+                .get(self.current_call()?.ret_val_ptr.wrapping_add(ret))?,
             Operand::Val(val) => T::from_word(val),
-            Operand::Ref(var) => T::from_word(
-                self.current_call()?.base_ptr.wrapping_add(var)
-            ),
+            Operand::Ref(var) => T::from_word(self.current_call()?.base_ptr.wrapping_add(var)),
             Operand::Glb(ptr) => self.memory.get(ptr)?,
             Operand::Emp => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
         })
     }
 
     fn set_val<T>(&mut self, operand: Operand, val: T) -> Result<(), ExecutionError>
-        where
-            T: Primary,
+    where
+        T: Primary,
     {
         Ok(match operand {
-            Operand::Loc(loc) => self.memory.set(
-                self.current_call()?.base_ptr.wrapping_add(loc),
-                val,
-            )?,
-            Operand::Ind(ptr) => if ptr == 0 {
-                return Err(ExecutionError::NullPointerDereference);
-            } else {
-                self.memory.set(
-                    self.memory.get(self.current_call()?.base_ptr.wrapping_add(ptr))?,
-                    val,
-                )?
+            Operand::Loc(loc) => self
+                .memory
+                .set(self.current_call()?.base_ptr.wrapping_add(loc), val)?,
+            Operand::Ind(ptr) => {
+                if ptr == 0 {
+                    return Err(ExecutionError::NullPointerDereference);
+                } else {
+                    self.memory.set(
+                        self.memory
+                            .get(self.current_call()?.base_ptr.wrapping_add(ptr))?,
+                        val,
+                    )?
+                }
             }
-            Operand::Ret(ret) => self.memory.set(
-                self.current_call()?.ret_val_ptr.wrapping_add(ret),
-                val,
-            )?,
+            Operand::Ret(ret) => self
+                .memory
+                .set(self.current_call()?.ret_val_ptr.wrapping_add(ret), val)?,
             Operand::Val(_) => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
             Operand::Ref(_) => return Err(ExecutionError::IncorrectOperation(*self.current_op()?)),
             Operand::Glb(ptr) => self.memory.set(ptr, val)?,
@@ -240,53 +250,46 @@ impl<'f> Executor<'f> {
     fn read_bin_operands(&self, bin: BinOp) -> Result<(Operand, Operand), ExecutionError> {
         Ok(match bin {
             BinOp::None { x, y } => (x, y),
-            BinOp::First { x, y, offset } => (
-                self.make_offset(x, offset)?,
-                y,
-            ),
-            BinOp::Second { x, y, offset } => (
-                x,
-                self.make_offset(y, offset)?,
-            ),
-            BinOp::Both { x, y, offset } => (
-                self.make_offset(x, offset)?,
-                self.make_offset(y, offset)?,
-            ),
+            BinOp::First { x, y, offset } => (self.make_offset(x, offset)?, y),
+            BinOp::Second { x, y, offset } => (x, self.make_offset(y, offset)?),
+            BinOp::Both { x, y, offset } => {
+                (self.make_offset(x, offset)?, self.make_offset(y, offset)?)
+            }
         })
     }
 
     fn get_un<T>(&mut self, un: UnOp) -> Result<T, ExecutionError>
-        where
-            T: Primary,
+    where
+        T: Primary,
     {
         let left = self.read_un_operand(un)?;
         self.get_val(left)
     }
 
     fn update_un<T, U, F>(&mut self, un: UnOp, f: F) -> Result<(), ExecutionError>
-        where
-            T: Primary,
-            U: Primary,
-            F: FnOnce(T) -> U,
+    where
+        T: Primary,
+        U: Primary,
+        F: FnOnce(T) -> U,
     {
         let left = self.read_un_operand(un)?;
         self.set_val(left, f(self.get_val(left)?))
     }
 
     fn update_bin<T, U, F>(&mut self, bin: BinOp, f: F) -> Result<(), ExecutionError>
-        where
-            T: Primary,
-            U: Primary,
-            F: FnOnce(T, T) -> U,
+    where
+        T: Primary,
+        U: Primary,
+        F: FnOnce(T, T) -> U,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         self.set_val(left, f(self.get_val(left)?, self.get_val(right)?))
     }
 
     fn update_bin_division<T, F>(&mut self, bin: BinOp, f: F) -> Result<(), ExecutionError>
-        where
-            T: Primary + PartialEq,
-            F: FnOnce(T, T) -> T,
+    where
+        T: Primary + PartialEq,
+        F: FnOnce(T, T) -> T,
     {
         let mut div_by_zero = false;
 
@@ -312,41 +315,58 @@ impl<'f> Executor<'f> {
     }
 
     fn exec_set<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
-        where
-            T: Primary,
-    { self.update_bin::<T, T, _>(bin, |_, y| y) }
+    where
+        T: Primary,
+    {
+        self.update_bin::<T, T, _>(bin, |_, y| y)
+    }
 
     fn exec_cnv<T, U>(&mut self, left: Operand, right: Operand) -> Result<(), ExecutionError>
-        where
-            T: Primary,
-            U: Convert<T>,
-    { self.set_val(left, U::convert(self.get_val(right)?)) }
+    where
+        T: Primary,
+        U: Convert<T>,
+    {
+        self.set_val(left, U::convert(self.get_val(right)?))
+    }
 
     fn exec_add<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
-        where T: Add,
-    { self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y)) }
+    where
+        T: Add,
+    {
+        self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y))
+    }
 
     fn exec_sub<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
-        where T: Sub,
-    { self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y)) }
+    where
+        T: Sub,
+    {
+        self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y))
+    }
 
     fn exec_mul<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
-        where T: Mul,
-    { self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y)) }
+    where
+        T: Mul,
+    {
+        self.update_bin::<T, T, _>(bin, |x, y| x.wrapping(y))
+    }
 
     fn exec_div<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
-        where
-            T: Div + PartialEq,
-    { self.update_bin_division::<T, _>(bin, |x, y| x.wrapping(y)) }
+    where
+        T: Div + PartialEq,
+    {
+        self.update_bin_division::<T, _>(bin, |x, y| x.wrapping(y))
+    }
 
     fn exec_mod<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
-        where
-            T: Rem + PartialEq,
-    { self.update_bin_division::<T, _>(bin, |x, y| x.wrapping(y)) }
+    where
+        T: Rem + PartialEq,
+    {
+        self.update_bin_division::<T, _>(bin, |x, y| x.wrapping(y))
+    }
 
     fn exec_shl<T>(&mut self, x: Operand, y: Operand) -> Result<(), ExecutionError>
-        where
-            T: Shl
+    where
+        T: Shl,
     {
         let x_val: T = self.get_val(x)?;
         let y_val: u8 = self.get_val(y)?;
@@ -354,8 +374,8 @@ impl<'f> Executor<'f> {
     }
 
     fn exec_shr<T>(&mut self, x: Operand, y: Operand) -> Result<(), ExecutionError>
-        where
-            T: Shr
+    where
+        T: Shr,
     {
         let x_val: T = self.get_val(x)?;
         let y_val: u8 = self.get_val(y)?;
@@ -363,136 +383,153 @@ impl<'f> Executor<'f> {
     }
 
     fn exec_and<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
-        where
-            T: Primary + std::ops::BitAnd<Output=T>,
-    { self.update_bin::<T, T, _>(bin, |x, y| x & y) }
+    where
+        T: Primary + std::ops::BitAnd<Output = T>,
+    {
+        self.update_bin::<T, T, _>(bin, |x, y| x & y)
+    }
 
     fn exec_or<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
-        where
-            T: Primary + std::ops::BitOr<Output=T>,
-    { self.update_bin::<T, T, _>(bin, |x, y| x | y) }
+    where
+        T: Primary + std::ops::BitOr<Output = T>,
+    {
+        self.update_bin::<T, T, _>(bin, |x, y| x | y)
+    }
 
     fn exec_xor<T>(&mut self, bin: BinOp) -> Result<(), ExecutionError>
-        where
-            T: Primary + std::ops::BitXor<Output=T>,
-    { self.update_bin::<T, T, _>(bin, |x, y| x ^ y) }
+    where
+        T: Primary + std::ops::BitXor<Output = T>,
+    {
+        self.update_bin::<T, T, _>(bin, |x, y| x ^ y)
+    }
 
     fn exec_not<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
-        where
-            T: Primary + std::ops::Not<Output=T>,
-    { self.update_un::<T, T, _>(un, |y| !y) }
+    where
+        T: Primary + std::ops::Not<Output = T>,
+    {
+        self.update_un::<T, T, _>(un, |y| !y)
+    }
 
     fn exec_neg<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
-        where T: Neg,
-    { self.update_un::<T, T, _>(un, |x| x.wrapping()) }
+    where
+        T: Neg,
+    {
+        self.update_un::<T, T, _>(un, |x| x.wrapping())
+    }
 
     fn exec_inc<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
-        where T: Inc,
-    { self.update_un::<T, T, _>(un, |x| x.wrapping()) }
+    where
+        T: Inc,
+    {
+        self.update_un::<T, T, _>(un, |x| x.wrapping())
+    }
 
     fn exec_dec<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
-        where T: Dec,
-    { self.update_un::<T, T, _>(un, |x| x.wrapping()) }
+    where
+        T: Dec,
+    {
+        self.update_un::<T, T, _>(un, |x| x.wrapping())
+    }
 
     fn exec_ife<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialEq,
+    where
+        T: Primary + PartialEq,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? == self.get_val::<T>(right)?)
     }
 
     fn exec_ifl<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialOrd,
+    where
+        T: Primary + PartialOrd,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? < self.get_val::<T>(right)?)
     }
 
     fn exec_ifg<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialOrd,
+    where
+        T: Primary + PartialOrd,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? > self.get_val::<T>(right)?)
     }
 
     fn exec_ine<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialEq,
+    where
+        T: Primary + PartialEq,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? != self.get_val::<T>(right)?)
     }
 
     fn exec_inl<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialOrd,
+    where
+        T: Primary + PartialOrd,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? >= self.get_val::<T>(right)?)
     }
 
     fn exec_ing<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialOrd,
+    where
+        T: Primary + PartialOrd,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? <= self.get_val::<T>(right)?)
     }
 
     fn exec_ifa<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialEq + std::ops::BitAnd<Output=T>,
+    where
+        T: Primary + PartialEq + std::ops::BitAnd<Output = T>,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? & self.get_val::<T>(right)? != T::zero())
     }
 
     fn exec_ifo<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialEq + std::ops::BitOr<Output=T>,
+    where
+        T: Primary + PartialEq + std::ops::BitOr<Output = T>,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? | self.get_val::<T>(right)? != T::zero())
     }
 
     fn exec_ifx<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialEq + std::ops::BitXor<Output=T>,
+    where
+        T: Primary + PartialEq + std::ops::BitXor<Output = T>,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? ^ self.get_val::<T>(right)? != T::zero())
     }
 
     fn exec_ina<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialEq + std::ops::BitAnd<Output=T>,
+    where
+        T: Primary + PartialEq + std::ops::BitAnd<Output = T>,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? & self.get_val::<T>(right)? == T::zero())
     }
 
     fn exec_ino<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialEq + std::ops::BitOr<Output=T>,
+    where
+        T: Primary + PartialEq + std::ops::BitOr<Output = T>,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? | self.get_val::<T>(right)? == T::zero())
     }
 
     fn exec_inx<T>(&self, bin: BinOp) -> Result<bool, ExecutionError>
-        where
-            T: Primary + PartialEq + std::ops::BitXor<Output=T>,
+    where
+        T: Primary + PartialEq + std::ops::BitXor<Output = T>,
     {
         let (left, right) = self.read_bin_operands(bin)?;
         Ok(self.get_val::<T>(left)? ^ self.get_val::<T>(right)? == T::zero())
     }
 
     fn exec_par<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
-        where
-            T: Primary,
+    where
+        T: Primary,
     {
         let frame_size = self.current_call()?.function.frame_size;
         let parameter_loc = self.parameter_ptr.wrapping_add(frame_size);
@@ -505,8 +542,8 @@ impl<'f> Executor<'f> {
     }
 
     fn set_ret<T>(&mut self, un: UnOp) -> Result<(), ExecutionError>
-        where
-            T: Primary,
+    where
+        T: Primary,
     {
         let right = self.read_un_operand(un)?;
         self.set_val::<T>(Operand::Ret(0), self.get_val(right)?)

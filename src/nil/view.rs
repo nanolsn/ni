@@ -19,11 +19,15 @@ impl<T> View<T> {
         }
     }
 
-    pub fn empty() -> Self { Self(None) }
+    pub fn empty() -> Self {
+        Self(None)
+    }
 }
 
 impl<T> Default for View<T> {
-    fn default() -> Self { Self::empty() }
+    fn default() -> Self {
+        Self::empty()
+    }
 }
 
 impl<T> std::ops::Deref for View<T> {
@@ -39,22 +43,30 @@ impl<T> std::ops::Deref for View<T> {
 }
 
 impl<T> AsRef<[T]> for View<T> {
-    fn as_ref(&self) -> &[T] { &*self }
+    fn as_ref(&self) -> &[T] {
+        &*self
+    }
 }
 
 use std::fmt::{Debug, Formatter, Result};
 
 impl<T> Debug for View<T>
-    where
-        T: Debug,
+where
+    T: Debug,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result { write!(f, "{:?}", self.as_ref()) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{:?}", self.as_ref())
+    }
 }
 
 impl<T> From<Vec<T>> for View<T> {
-    fn from(vec: Vec<T>) -> Self { Self::from_vec(vec) }
+    fn from(vec: Vec<T>) -> Self {
+        Self::from_vec(vec)
+    }
 }
 
 impl<T> From<Box<[T]>> for View<T> {
-    fn from(boxed: Box<[T]>) -> Self { Self::from_box(boxed) }
+    fn from(boxed: Box<[T]>) -> Self {
+        Self::from_box(boxed)
+    }
 }

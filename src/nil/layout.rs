@@ -1,13 +1,6 @@
-use crate::common::{
-    OpType,
-    UWord,
-};
+use crate::common::{OpType, UWord};
 
-use super::{
-    WORD_SIZE,
-    view::View,
-    LayoutBuilder,
-};
+use super::{view::View, LayoutBuilder, WORD_SIZE};
 
 #[derive(Debug)]
 pub struct Layout<'n, 't> {
@@ -16,7 +9,9 @@ pub struct Layout<'n, 't> {
 }
 
 impl<'n, 't> Layout<'n, 't> {
-    pub fn builder() -> LayoutBuilder<'n> { LayoutBuilder::new() }
+    pub fn builder() -> LayoutBuilder<'n> {
+        LayoutBuilder::new()
+    }
 
     pub fn size(&self, layouts: &[Layout]) -> UWord {
         self.fields.iter().map(|f| f.ty.size(layouts)).sum()
@@ -84,8 +79,14 @@ mod tests {
             .unwrap();
 
         assert!(matches!(lay.fields[0].ty, Ty::Function));
-        assert!(matches!(lay.fields[1].ty, Ty::Indirect(Ty::OpType(OpType::U32))));
-        assert!(matches!(lay.fields[2].ty, Ty::Array(Ty::Array(Ty::OpType(OpType::I32), 12), 4)));
+        assert!(matches!(
+            lay.fields[1].ty,
+            Ty::Indirect(Ty::OpType(OpType::U32))
+        ));
+        assert!(matches!(
+            lay.fields[2].ty,
+            Ty::Array(Ty::Array(Ty::OpType(OpType::I32), 12), 4)
+        ));
         assert!(matches!(lay.fields[3].ty, Ty::Indirect(Ty::Layout(0))));
 
         assert_eq!(
@@ -94,7 +95,7 @@ mod tests {
                 + WORD_SIZE  // x
                 + 4 * 12 * 4 // y
                 + WORD_SIZE  // self
-                + 1 + 2      // other
+                + 1 + 2 // other
         );
     }
 }

@@ -1,5 +1,5 @@
-use crate::common::UWord;
 use super::primary::Primary;
+use crate::common::UWord;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MemoryError {
@@ -47,15 +47,19 @@ impl MemoryPage {
         }
     }
 
-    pub fn len(&self) -> UWord { self.page.len() as UWord }
+    pub fn len(&self) -> UWord {
+        self.page.len() as UWord
+    }
 
     pub fn get(&self, ptr: UWord, size: UWord) -> Result<&[u8], MemoryError> {
-        self.page.get(ptr as usize..ptr.wrapping_add(size) as usize)
+        self.page
+            .get(ptr as usize..ptr.wrapping_add(size) as usize)
             .ok_or(MemoryError::SegmentationFault(ptr, size))
     }
 
     pub fn get_mut(&mut self, ptr: UWord, size: UWord) -> Result<&mut [u8], MemoryError> {
-        self.page.get_mut(ptr as usize..ptr.wrapping_add(size) as usize)
+        self.page
+            .get_mut(ptr as usize..ptr.wrapping_add(size) as usize)
             .ok_or(MemoryError::SegmentationFault(ptr, size))
     }
 
@@ -123,7 +127,10 @@ impl Memory {
 
     pub fn from_limits(stack_limit: usize, heap_limit: usize) -> Self {
         if stack_limit >= Self::HEAP_BASE as usize {
-            panic!("Stack limit must be less than heap base ({})", Self::HEAP_BASE)
+            panic!(
+                "Stack limit must be less than heap base ({})",
+                Self::HEAP_BASE
+            )
         }
 
         Self {
@@ -133,8 +140,8 @@ impl Memory {
     }
 
     pub fn set<T>(&mut self, ptr: UWord, value: T) -> Result<(), MemoryError>
-        where
-            T: Primary,
+    where
+        T: Primary,
     {
         use std::borrow::Borrow;
 
@@ -144,18 +151,20 @@ impl Memory {
     }
 
     pub fn get<T>(&self, ptr: UWord) -> Result<T, MemoryError>
-        where
-            T: Primary,
+    where
+        T: Primary,
     {
         let src = self.slice(ptr, T::SIZE as UWord)?;
         Ok(T::from_slice(src))
     }
 
     pub fn update<T, F>(&mut self, ptr: UWord, f: F) -> Result<(), MemoryError>
-        where
-            T: Primary,
-            F: FnOnce(T) -> T,
-    { self.set(ptr, f(self.get(ptr)?)) }
+    where
+        T: Primary,
+        F: FnOnce(T) -> T,
+    {
+        self.set(ptr, f(self.get(ptr)?))
+    }
 
     pub fn copy(&mut self, dest: UWord, src: UWord, size: UWord) -> Result<(), MemoryError> {
         let dest_on_stack = dest < Memory::HEAP_BASE;
@@ -189,9 +198,7 @@ impl Memory {
 
     pub fn set_zeros(&mut self, dest: UWord, size: UWord) -> Result<(), MemoryError> {
         let slice = self.slice_mut(dest, size)?;
-        slice
-            .iter_mut()
-            .for_each(|b| *b = 0);
+        slice.iter_mut().for_each(|b| *b = 0);
 
         Ok(())
     }
@@ -233,7 +240,10 @@ mod tests {
         assert_eq!(mem.stack.page.as_slice(), [0, 0, 0, 0]);
 
         let mut mem = Memory::from_limits(2048, 2048);
-        assert_eq!(mem.stack.expand(UWord::MAX), Err(MemoryError::PageOverflow("stack")));
+        assert_eq!(
+            mem.stack.expand(UWord::MAX),
+            Err(MemoryError::PageOverflow("stack"))
+        );
     }
 
     #[test]
@@ -303,20 +313,21 @@ mod tests {
         mem.set(0, 0xFF04).unwrap();
 
         mem.copy(8, 0, 8).unwrap();
-        assert_eq!(mem.stack.page.as_slice(), [
-            4, 255, 0, 0, 0, 0, 0, 0,
-            4, 255, 0, 0, 0, 0, 0, 0,
-        ]);
+        assert_eq!(
+            mem.stack.page.as_slice(),
+            [4, 255, 0, 0, 0, 0, 0, 0, 4, 255, 0, 0, 0, 0, 0, 0,]
+        );
 
         let mut mem = Memory::from_limits(2048, 2048);
         mem.heap.expand(16).unwrap();
         mem.set(Memory::HEAP_BASE, 0xFF04).unwrap();
 
-        mem.copy(Memory::HEAP_BASE + 8, Memory::HEAP_BASE, 8).unwrap();
-        assert_eq!(mem.heap.page.as_slice(), [
-            4, 255, 0, 0, 0, 0, 0, 0,
-            4, 255, 0, 0, 0, 0, 0, 0,
-        ]);
+        mem.copy(Memory::HEAP_BASE + 8, Memory::HEAP_BASE, 8)
+            .unwrap();
+        assert_eq!(
+            mem.heap.page.as_slice(),
+            [4, 255, 0, 0, 0, 0, 0, 0, 4, 255, 0, 0, 0, 0, 0, 0,]
+        );
     }
 
     #[test]

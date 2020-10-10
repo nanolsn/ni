@@ -4,14 +4,14 @@ pub trait ExpectedError {
 
 pub trait Expected {
     fn expected<E>(self, bytes: usize) -> Result<(), E>
-        where
-            E: ExpectedError + From<std::io::Error>;
+    where
+        E: ExpectedError + From<std::io::Error>;
 }
 
 impl Expected for Result<usize, std::io::Error> {
     fn expected<E>(self, bytes: usize) -> Result<(), E>
-        where
-            E: ExpectedError + From<std::io::Error>,
+    where
+        E: ExpectedError + From<std::io::Error>,
     {
         match self {
             Ok(o) if o == bytes => Ok(()),

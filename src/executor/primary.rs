@@ -80,15 +80,27 @@ macro_rules! impl_add {
 impl_add!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 
 impl Add for f32 {
-    fn wrapping(self, r: Self) -> Self { self + r }
-    fn saturating(self, r: Self) -> Self { self + r }
-    fn checked(self, r: Self) -> Option<Self> { Some(self + r) }
+    fn wrapping(self, r: Self) -> Self {
+        self + r
+    }
+    fn saturating(self, r: Self) -> Self {
+        self + r
+    }
+    fn checked(self, r: Self) -> Option<Self> {
+        Some(self + r)
+    }
 }
 
 impl Add for f64 {
-    fn wrapping(self, r: Self) -> Self { self + r }
-    fn saturating(self, r: Self) -> Self { self + r }
-    fn checked(self, r: Self) -> Option<Self> { Some(self + r) }
+    fn wrapping(self, r: Self) -> Self {
+        self + r
+    }
+    fn saturating(self, r: Self) -> Self {
+        self + r
+    }
+    fn checked(self, r: Self) -> Option<Self> {
+        Some(self + r)
+    }
 }
 
 pub trait Sub: Primary {
@@ -112,15 +124,27 @@ macro_rules! impl_sub {
 impl_sub!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 
 impl Sub for f32 {
-    fn wrapping(self, r: Self) -> Self { self - r }
-    fn saturating(self, r: Self) -> Self { self - r }
-    fn checked(self, r: Self) -> Option<Self> { Some(self - r) }
+    fn wrapping(self, r: Self) -> Self {
+        self - r
+    }
+    fn saturating(self, r: Self) -> Self {
+        self - r
+    }
+    fn checked(self, r: Self) -> Option<Self> {
+        Some(self - r)
+    }
 }
 
 impl Sub for f64 {
-    fn wrapping(self, r: Self) -> Self { self - r }
-    fn saturating(self, r: Self) -> Self { self - r }
-    fn checked(self, r: Self) -> Option<Self> { Some(self - r) }
+    fn wrapping(self, r: Self) -> Self {
+        self - r
+    }
+    fn saturating(self, r: Self) -> Self {
+        self - r
+    }
+    fn checked(self, r: Self) -> Option<Self> {
+        Some(self - r)
+    }
 }
 
 pub trait Mul: Primary {
@@ -144,15 +168,27 @@ macro_rules! impl_mul {
 impl_mul!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 
 impl Mul for f32 {
-    fn wrapping(self, r: Self) -> Self { self * r }
-    fn saturating(self, r: Self) -> Self { self * r }
-    fn checked(self, r: Self) -> Option<Self> { Some(self * r) }
+    fn wrapping(self, r: Self) -> Self {
+        self * r
+    }
+    fn saturating(self, r: Self) -> Self {
+        self * r
+    }
+    fn checked(self, r: Self) -> Option<Self> {
+        Some(self * r)
+    }
 }
 
 impl Mul for f64 {
-    fn wrapping(self, r: Self) -> Self { self * r }
-    fn saturating(self, r: Self) -> Self { self * r }
-    fn checked(self, r: Self) -> Option<Self> { Some(self * r) }
+    fn wrapping(self, r: Self) -> Self {
+        self * r
+    }
+    fn saturating(self, r: Self) -> Self {
+        self * r
+    }
+    fn checked(self, r: Self) -> Option<Self> {
+        Some(self * r)
+    }
 }
 
 pub trait Div: Primary {
@@ -172,11 +208,15 @@ macro_rules! impl_div {
 impl_div!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 
 impl Div for f32 {
-    fn wrapping(self, r: Self) -> Self { self / r }
+    fn wrapping(self, r: Self) -> Self {
+        self / r
+    }
 }
 
 impl Div for f64 {
-    fn wrapping(self, r: Self) -> Self { self / r }
+    fn wrapping(self, r: Self) -> Self {
+        self / r
+    }
 }
 
 pub trait Rem: Primary {
@@ -196,11 +236,15 @@ macro_rules! impl_rem {
 impl_rem!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 
 impl Rem for f32 {
-    fn wrapping(self, r: Self) -> Self { self % r }
+    fn wrapping(self, r: Self) -> Self {
+        self % r
+    }
 }
 
 impl Rem for f64 {
-    fn wrapping(self, r: Self) -> Self { self % r }
+    fn wrapping(self, r: Self) -> Self {
+        self % r
+    }
 }
 
 pub trait Shl: Primary {
@@ -256,19 +300,31 @@ macro_rules! impl_neg {
 impl_neg!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 
 impl Neg for f32 {
-    fn wrapping(self) -> Self { -self }
+    fn wrapping(self) -> Self {
+        -self
+    }
 
-    fn saturating(self) -> Self { -self }
+    fn saturating(self) -> Self {
+        -self
+    }
 
-    fn checked(self) -> Option<Self> { Some(-self) }
+    fn checked(self) -> Option<Self> {
+        Some(-self)
+    }
 }
 
 impl Neg for f64 {
-    fn wrapping(self) -> Self { -self }
+    fn wrapping(self) -> Self {
+        -self
+    }
 
-    fn saturating(self) -> Self { -self }
+    fn saturating(self) -> Self {
+        -self
+    }
 
-    fn checked(self) -> Option<Self> { Some(-self) }
+    fn checked(self) -> Option<Self> {
+        Some(-self)
+    }
 }
 
 pub trait Inc: Primary {
@@ -278,12 +334,18 @@ pub trait Inc: Primary {
 }
 
 impl<T> Inc for T
-    where
-        T: Add,
+where
+    T: Add,
 {
-    fn wrapping(self) -> Self { Add::wrapping(self, T::one()) }
-    fn saturating(self) -> Self { Add::saturating(self, T::one()) }
-    fn checked(self) -> Option<Self> { Add::checked(self, T::one()) }
+    fn wrapping(self) -> Self {
+        Add::wrapping(self, T::one())
+    }
+    fn saturating(self) -> Self {
+        Add::saturating(self, T::one())
+    }
+    fn checked(self) -> Option<Self> {
+        Add::checked(self, T::one())
+    }
 }
 
 pub trait Dec: Primary {
@@ -293,12 +355,18 @@ pub trait Dec: Primary {
 }
 
 impl<T> Dec for T
-    where
-        T: Sub,
+where
+    T: Sub,
 {
-    fn wrapping(self) -> Self { Sub::wrapping(self, T::one()) }
-    fn saturating(self) -> Self { Sub::saturating(self, T::one()) }
-    fn checked(self) -> Option<Self> { Sub::checked(self, T::one()) }
+    fn wrapping(self) -> Self {
+        Sub::wrapping(self, T::one())
+    }
+    fn saturating(self) -> Self {
+        Sub::saturating(self, T::one())
+    }
+    fn checked(self) -> Option<Self> {
+        Sub::checked(self, T::one())
+    }
 }
 
 pub trait Convert<T>: Primary {

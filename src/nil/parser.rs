@@ -1,10 +1,7 @@
 use pest::{
-    Parser,
     error::Error,
-    iterators::{
-        Pair,
-        Pairs,
-    },
+    iterators::{Pair, Pairs},
+    Parser,
 };
 
 use crate::common::UWord;
@@ -14,10 +11,7 @@ use crate::common::UWord;
 fn parse_int(s: &str) -> UWord {
     fn replace_underscore(s: &str) -> std::borrow::Cow<str> {
         if s.contains("_") {
-            let s: String = s
-                .chars()
-                .filter(|&c| c != '_')
-                .collect();
+            let s: String = s.chars().filter(|&c| c != '_').collect();
 
             s.into()
         } else {
@@ -71,7 +65,11 @@ fn exec_const_expr(expr: &[ConstExpr]) -> Option<UWord> {
                 let t = stack.pop()?;
                 let i = stack.pop()?;
 
-                if i != 0 { t } else { e }
+                if i != 0 {
+                    t
+                } else {
+                    e
+                }
             }
             ConstExpr::Cmp(cmp) => {
                 let r = stack.pop()?;
@@ -84,27 +82,43 @@ fn exec_const_expr(expr: &[ConstExpr]) -> Option<UWord> {
                     "<" => l < r,
                     ">=" => l >= r,
                     ">" => l > r,
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
 
-                if res { 1 } else { 0 }
+                if res {
+                    1
+                } else {
+                    0
+                }
             }
             ConstExpr::And => {
                 let r = stack.pop()?;
                 let l = stack.pop()?;
 
-                if l != 0 && r != 0 { 1 } else { 0 }
+                if l != 0 && r != 0 {
+                    1
+                } else {
+                    0
+                }
             }
             ConstExpr::Or => {
                 let r = stack.pop()?;
                 let l = stack.pop()?;
 
-                if l != 0 || r != 0 { 1 } else { 0 }
+                if l != 0 || r != 0 {
+                    1
+                } else {
+                    0
+                }
             }
             ConstExpr::Not => {
                 let a = stack.pop()?;
 
-                if a != 0 { 0 } else { 1 }
+                if a != 0 {
+                    0
+                } else {
+                    1
+                }
             }
             ConstExpr::Add(add) => {
                 let r = stack.pop()?;
@@ -113,7 +127,7 @@ fn exec_const_expr(expr: &[ConstExpr]) -> Option<UWord> {
                 match add {
                     "+" => l.wrapping_add(r),
                     "-" => l.wrapping_sub(r),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             }
             ConstExpr::Mul(mul) => {
@@ -124,17 +138,15 @@ fn exec_const_expr(expr: &[ConstExpr]) -> Option<UWord> {
                     "*" => l.wrapping_mul(r),
                     "/" => l.wrapping_div(r),
                     "%" => l.wrapping_rem(r),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             }
-            ConstExpr::Operator(op) => {
-                match op {
-                    "len" => 0,
-                    "size" => 0,
-                    "align" => 0,
-                    _ => unreachable!()
-                }
-            }
+            ConstExpr::Operator(op) => match op {
+                "len" => 0,
+                "size" => 0,
+                "align" => 0,
+                _ => unreachable!(),
+            },
         };
 
         stack.push(res);
@@ -149,10 +161,13 @@ fn exec_const_expr(expr: &[ConstExpr]) -> Option<UWord> {
 #[grammar = "./nil/syntax.pest"]
 pub struct NilParser;
 
-fn parse_binary<'r, F>(mut pairs: Pairs<'r, Rule>, exprs: &mut Vec<ConstExpr<'r>>, mut get_expr: F)
-                       -> Result<(), Error<Rule>>
-    where
-        F: FnMut(&'r str) -> ConstExpr<'r>,
+fn parse_binary<'r, F>(
+    mut pairs: Pairs<'r, Rule>,
+    exprs: &mut Vec<ConstExpr<'r>>,
+    mut get_expr: F,
+) -> Result<(), Error<Rule>>
+where
+    F: FnMut(&'r str) -> ConstExpr<'r>,
 {
     let left = pairs.next().unwrap();
     parse_const_expr(left, exprs).unwrap();
@@ -168,8 +183,10 @@ fn parse_binary<'r, F>(mut pairs: Pairs<'r, Rule>, exprs: &mut Vec<ConstExpr<'r>
     Ok(())
 }
 
-fn parse_const_expr<'r>(pair: Pair<'r, Rule>, exprs: &mut Vec<ConstExpr<'r>>)
-                        -> Result<(), Error<Rule>> {
+fn parse_const_expr<'r>(
+    pair: Pair<'r, Rule>,
+    exprs: &mut Vec<ConstExpr<'r>>,
+) -> Result<(), Error<Rule>> {
     match pair.as_rule() {
         Rule::nil => {
             let mut inner = pair.into_inner();
@@ -262,7 +279,9 @@ fn parse_const_expr<'r>(pair: Pair<'r, Rule>, exprs: &mut Vec<ConstExpr<'r>>)
 
             parse_const_expr(not, exprs).unwrap();
 
-            for _ in 0..ns { exprs.push(ConstExpr::Not) }
+            for _ in 0..ns {
+                exprs.push(ConstExpr::Not)
+            }
         }
         Rule::add => parse_binary(pair.into_inner(), exprs, ConstExpr::Add)?,
         Rule::mul => parse_binary(pair.into_inner(), exprs, ConstExpr::Mul)?,
@@ -311,10 +330,7 @@ mod tests {
             else 12+(1 and IF)*2 +size ( _as4 ) // lol
         else 2*  2"#;
 
-        let nil = NilParser::parse(Rule::nil, code)
-            .unwrap()
-            .next()
-            .unwrap();
+        let nil = NilParser::parse(Rule::nil, code).unwrap().next().unwrap();
 
         let mut exprs = Vec::new();
         let _ = parse_const_expr(nil, &mut exprs).unwrap();

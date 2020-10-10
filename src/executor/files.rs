@@ -1,7 +1,4 @@
-use std::{
-    any::Any,
-    collections::vec_deque::VecDeque,
-};
+use std::{any::Any, collections::vec_deque::VecDeque};
 
 use crate::common::UWord;
 
@@ -16,20 +13,26 @@ pub trait File: std::fmt::Debug {
 
     fn write(&mut self, val: u8) -> Result<(), FileError>;
 
-    fn flush(&mut self) -> Result<(), FileError> { Ok(()) }
+    fn flush(&mut self) -> Result<(), FileError> {
+        Ok(())
+    }
 
     fn as_any(&self) -> &dyn Any;
 }
 
 impl File for Vec<u8> {
-    fn read(&mut self) -> Result<Option<u8>, FileError> { Err(FileError::ReadingNotAvailable) }
+    fn read(&mut self) -> Result<Option<u8>, FileError> {
+        Err(FileError::ReadingNotAvailable)
+    }
 
     fn write(&mut self, val: u8) -> Result<(), FileError> {
         self.push(val);
         Ok(())
     }
 
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl File for VecDeque<u8> {
@@ -43,7 +46,9 @@ impl File for VecDeque<u8> {
         Ok(())
     }
 
-    fn as_any(&self) -> &dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -55,7 +60,9 @@ pub enum FilesError {
 }
 
 impl From<FileError> for FilesError {
-    fn from(e: FileError) -> Self { FilesError::FileError(e) }
+    fn from(e: FileError) -> Self {
+        FilesError::FileError(e)
+    }
 }
 
 #[derive(Debug)]
@@ -77,17 +84,15 @@ impl Files {
     }
 
     pub fn open<F>(&mut self, file: F) -> Result<UWord, (FilesError, F)>
-        where
-            F: File + 'static,
+    where
+        F: File + 'static,
     {
         if self.count == Self::LIMIT {
             return Err((FilesError::LimitExceeded, file));
         }
 
         let mut idx = None;
-        let current = self.current
-            .as_ref()
-            .map(|(idx, _)| *idx);
+        let current = self.current.as_ref().map(|(idx, _)| *idx);
 
         // Find a free cell
         for i in 0..self.files.len() {
@@ -118,11 +123,11 @@ impl Files {
 
     pub fn close(&mut self, idx: UWord) -> Result<Box<dyn File>, FilesError> {
         let file = match self.current {
-            Some((current, _)) if current == idx as usize => self.current
-                .take()
-                .map(|(_, file)| file)
-                .unwrap(),
-            _ => self.files
+            Some((current, _)) if current == idx as usize => {
+                self.current.take().map(|(_, file)| file).unwrap()
+            }
+            _ => self
+                .files
                 .get_mut(idx as usize)
                 .ok_or(FilesError::NotFound)?
                 .take()
@@ -135,7 +140,8 @@ impl Files {
 
     pub fn set_current(&mut self, idx: UWord) -> Result<(), FilesError> {
         let idx = idx as usize;
-        let file = self.files
+        let file = self
+            .files
             .get_mut(idx)
             .ok_or(FilesError::NotFound)?
             .take()
@@ -146,17 +152,13 @@ impl Files {
     }
 
     pub fn current(&self) -> Result<UWord, FilesError> {
-        let (current, _) = self.current
-            .as_ref()
-            .ok_or(FilesError::CurrentIsNotSet)?;
+        let (current, _) = self.current.as_ref().ok_or(FilesError::CurrentIsNotSet)?;
 
         Ok(*current as UWord)
     }
 
     fn get_mut(&mut self) -> Result<&mut dyn File, FilesError> {
-        let (_, file) = self.current
-            .as_mut()
-            .ok_or(FilesError::CurrentIsNotSet)?;
+        let (_, file) = self.current.as_mut().ok_or(FilesError::CurrentIsNotSet)?;
 
         Ok(Box::as_mut(file) as &mut dyn File)
     }

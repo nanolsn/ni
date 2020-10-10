@@ -1,6 +1,6 @@
-use std::io::{self, Read};
-use crate::common::{*, bits::*};
 use super::decode::*;
+use crate::common::{bits::*, *};
+use std::io::{self, Read};
 
 #[derive(Debug)]
 pub enum DecodeError {
@@ -12,11 +12,15 @@ pub enum DecodeError {
 }
 
 impl From<UndefinedOperation> for DecodeError {
-    fn from(e: UndefinedOperation) -> Self { DecodeError::UndefinedOperation(e) }
+    fn from(e: UndefinedOperation) -> Self {
+        DecodeError::UndefinedOperation(e)
+    }
 }
 
 impl From<io::Error> for DecodeError {
-    fn from(e: io::Error) -> Self { DecodeError::ReadError(e) }
+    fn from(e: io::Error) -> Self {
+        DecodeError::ReadError(e)
+    }
 }
 
 impl ExpectedError for DecodeError {
@@ -28,8 +32,8 @@ trait ReadU8 {
 }
 
 impl<R> ReadU8 for R
-    where
-        R: Read,
+where
+    R: Read,
 {
     fn read_u8(&mut self) -> Result<u8, DecodeError> {
         let mut buf = [0];
@@ -39,8 +43,8 @@ impl<R> ReadU8 for R
 }
 
 fn decode_op<R>(bytes: &mut R) -> Result<Op, DecodeError>
-    where
-        R: Read,
+where
+    R: Read,
 {
     use op_codes::*;
     use Op::*;
@@ -242,17 +246,19 @@ impl Decode<()> for Op {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
-        where
-            R: Read,
-    { decode_op(bytes) }
+    where
+        R: Read,
+    {
+        decode_op(bytes)
+    }
 }
 
 impl Decode<()> for (BinOp, OpType) {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
-        where
-            R: Read,
+    where
+        R: Read,
     {
         let (op_type, variant) = decode(bytes)?;
         let bin_op = decode_with(bytes, variant)?;
@@ -265,8 +271,8 @@ impl Decode<Variant> for BinOp {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, var: Variant) -> Result<Self, Self::Err>
-        where
-            R: Read,
+    where
+        R: Read,
     {
         let bin_op = BinOp::new(decode(bytes)?, decode(bytes)?);
 
@@ -283,8 +289,8 @@ impl Decode<Variant> for UnOp {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, var: Variant) -> Result<Self, Self::Err>
-        where
-            R: Read,
+    where
+        R: Read,
     {
         let un_op = UnOp::new(decode(bytes)?);
 
@@ -300,8 +306,8 @@ impl Decode<()> for (OpType, Variant) {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
-        where
-            R: Read,
+    where
+        R: Read,
     {
         let meta = bytes.read_u8()?;
 
@@ -316,8 +322,8 @@ impl Decode<()> for OpType {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
-        where
-            R: Read,
+    where
+        R: Read,
     {
         let meta = bytes.read_u8()?;
         let t = OpType::new(meta & OP_TYPE_BITS)?;
@@ -330,8 +336,8 @@ impl Decode<()> for (OpType, OpType) {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
-        where
-            R: Read,
+    where
+        R: Read,
     {
         let meta = bytes.read_u8()?;
 
@@ -346,8 +352,8 @@ impl Decode<()> for UnOp {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
-        where
-            R: Read,
+    where
+        R: Read,
     {
         let (_, var): (_, Variant) = decode(bytes)?;
         decode_with(bytes, var)
@@ -358,8 +364,8 @@ impl Decode<()> for Operand {
     type Err = DecodeError;
 
     fn decode<R>(bytes: &mut R, _: ()) -> Result<Self, Self::Err>
-        where
-            R: Read,
+    where
+        R: Read,
     {
         let meta = bytes.read_u8()?;
 
@@ -370,7 +376,9 @@ impl Decode<()> for Operand {
         let n_bytes = (meta & SIZE_BITS) as usize + 1;
         let mut buf = [0; std::mem::size_of::<UWord>()];
 
-        bytes.read(&mut buf[..n_bytes]).expected::<DecodeError>(n_bytes)?;
+        bytes
+            .read(&mut buf[..n_bytes])
+            .expected::<DecodeError>(n_bytes)?;
 
         let value = UWord::from_le_bytes(buf);
         let kind = (meta & KIND_BITS) >> 4;
@@ -402,7 +410,11 @@ mod tests {
     fn decode_unknown_op_code() {
         let code = [
             // ? u16 loc(12) ref(8)
-            0xFF_u8, 0b0100_0010, 12, 0b1100_0000, 8,
+            0xFF_u8,
+            0b0100_0010,
+            12,
+            0b1100_0000,
+            8,
         ];
 
         let mut code = code.as_ref();
@@ -415,7 +427,12 @@ mod tests {
     fn decode_incorrect_variant() {
         let code = [
             // inc u16 loc(12){loc(0)} ref(8)
-            INC, 0b1000_0010, 12, 0b1100_0000, 8, 0,
+            INC,
+            0b1000_0010,
+            12,
+            0b1100_0000,
+            8,
+            0,
         ];
 
         let mut code = code.as_ref();
@@ -428,13 +445,12 @@ mod tests {
     fn decode_un_short() {
         let code = [
             // inc i16 loc(16)
-            INC, 0b0000_0011, 16,
+            INC,
+            0b0000_0011,
+            16,
         ];
 
-        let expected = Op::Inc(
-            UnOp::new(Operand::Loc(16)),
-            OpType::I16,
-        );
+        let expected = Op::Inc(UnOp::new(Operand::Loc(16)), OpType::I16);
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();
@@ -447,13 +463,13 @@ mod tests {
     fn decode_un_long() {
         let code = [
             // inc i16 ind(16)
-            INC, 0b0000_0011, 0b1001_0000, 16,
+            INC,
+            0b0000_0011,
+            0b1001_0000,
+            16,
         ];
 
-        let expected = Op::Inc(
-            UnOp::new(Operand::Ind(16)),
-            OpType::I16,
-        );
+        let expected = Op::Inc(UnOp::new(Operand::Ind(16)), OpType::I16);
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();
@@ -466,7 +482,12 @@ mod tests {
     fn decode_un_first_offset() {
         let code = [
             // inc i16 ind(16){ref(1)}
-            INC, 0b0100_0011, 0b1001_0000, 16, 0b1100_0000, 1,
+            INC,
+            0b0100_0011,
+            0b1001_0000,
+            16,
+            0b1100_0000,
+            1,
         ];
 
         let expected = Op::Inc(
@@ -485,13 +506,13 @@ mod tests {
     fn decode_bin_short() {
         let code = [
             // set i16 loc(8) loc(16)
-            SET, 0b0000_0011, 8, 16,
+            SET,
+            0b0000_0011,
+            8,
+            16,
         ];
 
-        let expected = Op::Set(
-            BinOp::new(Operand::Loc(8), Operand::Loc(16)),
-            OpType::I16,
-        );
+        let expected = Op::Set(BinOp::new(Operand::Loc(8), Operand::Loc(16)), OpType::I16);
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();
@@ -504,13 +525,16 @@ mod tests {
     fn decode_bin_long() {
         let code = [
             // add u32 loc(8) ind(16)
-            ADD, 0b0000_0100, 0b1000_0001, 8, 0, 0b1001_0000, 16,
+            ADD,
+            0b0000_0100,
+            0b1000_0001,
+            8,
+            0,
+            0b1001_0000,
+            16,
         ];
 
-        let expected = Op::Add(
-            BinOp::new(Operand::Loc(8), Operand::Ind(16)),
-            OpType::U32,
-        );
+        let expected = Op::Add(BinOp::new(Operand::Loc(8), Operand::Ind(16)), OpType::U32);
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();
@@ -523,7 +547,14 @@ mod tests {
     fn decode_bin_first_offset() {
         let code = [
             // set u32 ret(8){val(5)} ref(16)
-            SET, 0b0100_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
+            SET,
+            0b0100_0100,
+            0b1010_0000,
+            8,
+            0b1100_0000,
+            16,
+            0b1011_0000,
+            5,
         ];
 
         let expected = Op::Set(
@@ -542,7 +573,14 @@ mod tests {
     fn decode_bin_second_offset() {
         let code = [
             // div u32 ret(8) ref(16){val(5)}
-            DIV, 0b1000_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
+            DIV,
+            0b1000_0100,
+            0b1010_0000,
+            8,
+            0b1100_0000,
+            16,
+            0b1011_0000,
+            5,
         ];
 
         let expected = Op::Div(
@@ -561,7 +599,14 @@ mod tests {
     fn decode_bin_both_offset() {
         let code = [
             // mod u32 ret(8){val(5)} ref(16){val(5)}
-            MOD, 0b1100_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5,
+            MOD,
+            0b1100_0100,
+            0b1010_0000,
+            8,
+            0b1100_0000,
+            16,
+            0b1011_0000,
+            5,
         ];
 
         let expected = Op::Mod(
@@ -580,7 +625,10 @@ mod tests {
     fn decode_cnv() {
         let code = [
             // cnv u8 u16 loc(12) loc(9)
-            CNV, 0b0010_0000, 12, 9,
+            CNV,
+            0b0010_0000,
+            12,
+            9,
         ];
 
         let expected = Op::Cnv(Operand::Loc(12), Operand::Loc(9), OpType::U8, OpType::U16);
@@ -596,7 +644,10 @@ mod tests {
     fn decode_shl() {
         let code = [
             // shl u32 loc(12) loc(9)
-            SHL, 0b0000_0100, 12, 9,
+            SHL,
+            0b0000_0100,
+            12,
+            9,
         ];
 
         let expected = Op::Shl(Operand::Loc(12), Operand::Loc(9), OpType::U32);
@@ -612,7 +663,16 @@ mod tests {
     fn decode_ife() {
         let code = [
             // ife u16 loc(12){ref(4)} ref(8)
-            IFE, 0b0100_0010, 12, 0b1100_0000, 8, 0b1100_0011, 4, 0, 0, 0,
+            IFE,
+            0b0100_0010,
+            12,
+            0b1100_0000,
+            8,
+            0b1100_0011,
+            4,
+            0,
+            0,
+            0,
         ];
 
         let expected = Op::Ife(
@@ -631,7 +691,11 @@ mod tests {
     fn decode_ifa() {
         let code = [
             // ifa u32 loc(12) ref(8)
-            IFA, 0b0000_0100, 12, 0b1100_0000, 8,
+            IFA,
+            0b0000_0100,
+            12,
+            0b1100_0000,
+            8,
         ];
 
         let expected = Op::Ifa(BinOp::new(Operand::Loc(12), Operand::Ref(8)), OpType::U32);
@@ -647,7 +711,9 @@ mod tests {
     fn decode_app() {
         let code = [
             // app ref(8)
-            APP, 0b1100_0000, 8,
+            APP,
+            0b1100_0000,
+            8,
         ];
 
         let expected = Op::App(Operand::Ref(8));
@@ -663,7 +729,12 @@ mod tests {
     fn decode_par() {
         let code = [
             // par emp ref(8){val(6)}
-            PAR, 0b0101_1011, 0b1100_0000, 8, 0b1011_0000, 6,
+            PAR,
+            0b0101_1011,
+            0b1100_0000,
+            8,
+            0b1011_0000,
+            6,
         ];
 
         let expected = Op::Par(
@@ -682,7 +753,9 @@ mod tests {
     fn decode_ret() {
         let code = [
             // ret u8 loc(16)
-            RET, 0b0000_0000, 16,
+            RET,
+            0b0000_0000,
+            16,
         ];
 
         let expected = Op::Ret(UnOp::new(Operand::Loc(16)), OpType::U8);
@@ -698,12 +771,15 @@ mod tests {
     fn decode_in() {
         let code = [
             // in loc(0){loc(1)} loc(2){loc(1)}
-            IN, 0b1100_0000, 0, 2, 1,
+            IN,
+            0b1100_0000,
+            0,
+            2,
+            1,
         ];
 
-        let expected = Op::In(BinOp::new(Operand::Loc(0), Operand::Loc(2))
-            .with_both(Operand::Loc(1))
-        );
+        let expected =
+            Op::In(BinOp::new(Operand::Loc(0), Operand::Loc(2)).with_both(Operand::Loc(1)));
 
         let mut code = code.as_ref();
         let actual = decode_op(&mut code).unwrap();
@@ -716,7 +792,10 @@ mod tests {
     fn decode_out() {
         let code = [
             // out loc(0){loc(1)}
-            OUT, 0b0100_0000, 0, 1
+            OUT,
+            0b0100_0000,
+            0,
+            1,
         ];
 
         let expected = Op::Out(UnOp::new(Operand::Loc(0)).with_first(Operand::Loc(1)));
@@ -748,7 +827,11 @@ mod tests {
     fn decode_cpy() {
         let code = [
             // cpy loc(0) loc(1) val(12)
-            CPY, 0, 1, 0b1011_0000, 12,
+            CPY,
+            0,
+            1,
+            0b1011_0000,
+            12,
         ];
 
         let expected = Op::Cpy(Operand::Loc(0), Operand::Loc(1), Operand::Val(12));

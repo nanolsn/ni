@@ -1,4 +1,4 @@
-use super::{UWord, IWord};
+use super::{IWord, UWord};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum UndefinedOperation {
@@ -90,8 +90,8 @@ impl Operand {
     }
 
     pub fn map<F>(self, f: F) -> Self
-        where
-            F: FnOnce(UWord) -> UWord,
+    where
+        F: FnOnce(UWord) -> UWord,
     {
         use Operand::*;
 
@@ -108,7 +108,9 @@ impl Operand {
 }
 
 impl From<u8> for Operand {
-    fn from(byte: u8) -> Self { Operand::Loc(byte as UWord) }
+    fn from(byte: u8) -> Self {
+        Operand::Loc(byte as UWord)
+    }
 }
 
 impl std::fmt::Debug for Operand {
@@ -134,7 +136,9 @@ pub enum UnOp {
 }
 
 impl UnOp {
-    pub fn new(x: Operand) -> Self { UnOp::None { x } }
+    pub fn new(x: Operand) -> Self {
+        UnOp::None { x }
+    }
 
     pub fn with_first(self, offset: Operand) -> Self {
         if let UnOp::None { x } = self {
@@ -161,14 +165,31 @@ impl UnOp {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum BinOp {
-    None { x: Operand, y: Operand },
-    First { x: Operand, y: Operand, offset: Operand },
-    Second { x: Operand, y: Operand, offset: Operand },
-    Both { x: Operand, y: Operand, offset: Operand },
+    None {
+        x: Operand,
+        y: Operand,
+    },
+    First {
+        x: Operand,
+        y: Operand,
+        offset: Operand,
+    },
+    Second {
+        x: Operand,
+        y: Operand,
+        offset: Operand,
+    },
+    Both {
+        x: Operand,
+        y: Operand,
+        offset: Operand,
+    },
 }
 
 impl BinOp {
-    pub fn new(x: Operand, y: Operand) -> Self { BinOp::None { x, y } }
+    pub fn new(x: Operand, y: Operand) -> Self {
+        BinOp::None { x, y }
+    }
 
     pub fn with_first(self, offset: Operand) -> Self {
         if let BinOp::None { x, y } = self {
@@ -259,19 +280,15 @@ impl Op {
         use Op::*;
 
         match self {
-            Ift(..) | Iff(..)
-            | Ife(..) | Ifl(..) | Ifg(..)
-            | Ine(..) | Inl(..) | Ing(..)
-            | Ifa(..) | Ifo(..) | Ifx(..)
-            | Ina(..) | Ino(..) | Inx(..)
-            | Cmp(..) => true,
+            Ift(..) | Iff(..) | Ife(..) | Ifl(..) | Ifg(..) | Ine(..) | Inl(..) | Ing(..)
+            | Ifa(..) | Ifo(..) | Ifx(..) | Ina(..) | Ino(..) | Inx(..) | Cmp(..) => true,
             _ => false,
         }
     }
 
     pub fn op_code(&self) -> u8 {
-        use Op::*;
         use super::op_codes::*;
+        use Op::*;
 
         match self {
             Nop => NOP,
@@ -517,5 +534,7 @@ impl Variant {
 }
 
 impl Default for Variant {
-    fn default() -> Self { Variant::None }
+    fn default() -> Self {
+        Variant::None
+    }
 }

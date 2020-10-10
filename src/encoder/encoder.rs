@@ -1,6 +1,6 @@
-use std::io::{self, Write};
-use crate::common::{*, bits::LONG_OPERAND_BIT};
 use super::encode::*;
+use crate::common::{bits::LONG_OPERAND_BIT, *};
+use std::io::{self, Write};
 
 #[derive(Debug)]
 pub enum EncodeError {
@@ -9,7 +9,9 @@ pub enum EncodeError {
 }
 
 impl From<io::Error> for EncodeError {
-    fn from(e: io::Error) -> Self { EncodeError::WriteError(e) }
+    fn from(e: io::Error) -> Self {
+        EncodeError::WriteError(e)
+    }
 }
 
 impl ExpectedError for EncodeError {
@@ -17,8 +19,8 @@ impl ExpectedError for EncodeError {
 }
 
 fn encode_op<W>(op: Op, buf: &mut W) -> Result<(), EncodeError>
-    where
-        W: Write,
+where
+    W: Write,
 {
     use op_codes::*;
     use Op::*;
@@ -220,26 +222,30 @@ impl Encode for Op {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
-    { encode_op(*self, buf) }
+    where
+        W: Write,
+    {
+        encode_op(*self, buf)
+    }
 }
 
 impl Encode for u8 {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
-    { buf.write(&[*self]).expected(1) }
+    where
+        W: Write,
+    {
+        buf.write(&[*self]).expected(1)
+    }
 }
 
 impl Encode for Operand {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
+    where
+        W: Write,
     {
         const SHORT_MAX_VALUE: UWord = !LONG_OPERAND_BIT as UWord;
 
@@ -250,11 +256,7 @@ impl Encode for Operand {
                 return bytes[0].encode(buf);
             }
 
-            let n_bytes = bytes
-                .iter()
-                .rev()
-                .skip_while(|&b| *b == 0)
-                .count();
+            let n_bytes = bytes.iter().rev().skip_while(|&b| *b == 0).count();
 
             let mut meta = self.as_byte() << 4;
             meta |= n_bytes as u8 - 1;
@@ -273,17 +275,19 @@ impl Encode for OpType {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
-    { self.as_byte().encode(buf) }
+    where
+        W: Write,
+    {
+        self.as_byte().encode(buf)
+    }
 }
 
 impl Encode for (OpType, Variant) {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
+    where
+        W: Write,
     {
         let (op_type, variant) = self;
         let mut meta = variant.as_byte() << 6;
@@ -297,8 +301,8 @@ impl Encode for (BinOp, OpType) {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
+    where
+        W: Write,
     {
         let (bin_op, op_type) = self;
 
@@ -311,8 +315,8 @@ impl Encode for (UnOp, OpType) {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
+    where
+        W: Write,
     {
         let (un_op, op_type) = self;
 
@@ -325,8 +329,8 @@ impl Encode for (OpType, OpType) {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
+    where
+        W: Write,
     {
         let (t, u) = self;
         let mut meta = t.as_byte();
@@ -340,8 +344,8 @@ impl Encode for BinOp {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
+    where
+        W: Write,
     {
         let (x, y, offset) = match self {
             BinOp::None { x, y } => (x, y, None),
@@ -365,8 +369,8 @@ impl Encode for UnOp {
     type Err = EncodeError;
 
     fn encode<W>(&self, buf: &mut W) -> Result<(), Self::Err>
-        where
-            W: Write,
+    where
+        W: Write,
     {
         let (x, offset) = match self {
             UnOp::None { x } => (x, None),
@@ -440,10 +444,7 @@ mod tests {
 
     #[test]
     fn encode_bin_short() {
-        let op = Op::Set(
-            BinOp::new(Operand::Loc(8), Operand::Loc(16)),
-            OpType::I16,
-        );
+        let op = Op::Set(BinOp::new(Operand::Loc(8), Operand::Loc(16)), OpType::I16);
 
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();
@@ -461,7 +462,10 @@ mod tests {
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();
 
-        assert_eq!(buf, &[ADD, 0b0000_0100, 0b1000_0001, 0, 1, 0b1001_0001, 1, 1]);
+        assert_eq!(
+            buf,
+            &[ADD, 0b0000_0100, 0b1000_0001, 0, 1, 0b1001_0001, 1, 1]
+        );
     }
 
     #[test]
@@ -474,7 +478,19 @@ mod tests {
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();
 
-        assert_eq!(buf, &[SET, 0b0100_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5]);
+        assert_eq!(
+            buf,
+            &[
+                SET,
+                0b0100_0100,
+                0b1010_0000,
+                8,
+                0b1100_0000,
+                16,
+                0b1011_0000,
+                5
+            ]
+        );
     }
 
     #[test]
@@ -487,7 +503,19 @@ mod tests {
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();
 
-        assert_eq!(buf, &[DIV, 0b1000_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5]);
+        assert_eq!(
+            buf,
+            &[
+                DIV,
+                0b1000_0100,
+                0b1010_0000,
+                8,
+                0b1100_0000,
+                16,
+                0b1011_0000,
+                5
+            ]
+        );
     }
 
     #[test]
@@ -500,7 +528,19 @@ mod tests {
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();
 
-        assert_eq!(buf, &[MOD, 0b1100_0100, 0b1010_0000, 8, 0b1100_0000, 16, 0b1011_0000, 5]);
+        assert_eq!(
+            buf,
+            &[
+                MOD,
+                0b1100_0100,
+                0b1010_0000,
+                8,
+                0b1100_0000,
+                16,
+                0b1011_0000,
+                5
+            ]
+        );
     }
 
     #[test]
@@ -571,9 +611,7 @@ mod tests {
 
     #[test]
     fn encode_in() {
-        let op = Op::In(BinOp::new(Operand::Loc(0), Operand::Loc(2))
-            .with_both(Operand::Loc(1))
-        );
+        let op = Op::In(BinOp::new(Operand::Loc(0), Operand::Loc(2)).with_both(Operand::Loc(1)));
 
         let mut buf = vec![];
         encode_op(op, &mut buf).unwrap();

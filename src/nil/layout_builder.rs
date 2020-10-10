@@ -1,13 +1,6 @@
-use crate::common::{
-    OpType,
-    UWord,
-};
+use crate::common::{OpType, UWord};
 
-use super::{
-    Layout,
-    Field,
-    Ty,
-};
+use super::{Field, Layout, Ty};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum LayoutError {
@@ -19,20 +12,31 @@ pub struct LayoutBuilder<'n> {
 }
 
 impl<'n> LayoutBuilder<'n> {
-    pub fn new() -> Self { Self { blocks: vec![] } }
+    pub fn new() -> Self {
+        Self { blocks: vec![] }
+    }
 
     pub fn new_op_type(mut self, name: &'n str, op: OpType) -> Self {
-        self.blocks.push(Block::New { ty: BlockType::OpType(op), name });
+        self.blocks.push(Block::New {
+            ty: BlockType::OpType(op),
+            name,
+        });
         self
     }
 
     pub fn new_layout(mut self, name: &'n str, lay_idx: usize) -> Self {
-        self.blocks.push(Block::New { ty: BlockType::Layout(lay_idx), name });
+        self.blocks.push(Block::New {
+            ty: BlockType::Layout(lay_idx),
+            name,
+        });
         self
     }
 
     pub fn new_fn(mut self, name: &'n str) -> Self {
-        self.blocks.push(Block::New { ty: BlockType::Function, name });
+        self.blocks.push(Block::New {
+            ty: BlockType::Function,
+            name,
+        });
         self
     }
 
@@ -47,13 +51,14 @@ impl<'n> LayoutBuilder<'n> {
     }
 
     pub fn build<'t>(self) -> Result<Layout<'n, 't>, LayoutError> {
-        let (n_fields, n_types) = self.blocks
-            .iter()
-            .fold((0usize, 0usize), |(fx, tx), b| match b {
-                Block::New { .. } => (fx + 1, tx),
-                Block::Array(_) => (fx, tx + 1),
-                Block::Indirect => (fx, tx + 1),
-            });
+        let (n_fields, n_types) =
+            self.blocks
+                .iter()
+                .fold((0usize, 0usize), |(fx, tx), b| match b {
+                    Block::New { .. } => (fx + 1, tx),
+                    Block::Array(_) => (fx, tx + 1),
+                    Block::Indirect => (fx, tx + 1),
+                });
 
         let mut fields = Vec::with_capacity(n_fields);
         let mut types = Vec::with_capacity(n_types);
@@ -136,16 +141,19 @@ mod tests {
             .build()
             .unwrap();
 
-        assert!(matches!(lay.fields[0].ty, Ty::Array(Ty::Indirect(Ty::Layout(0)), 4)));
-        assert!(matches!(lay.fields[1].ty, Ty::Array(Ty::Array(Ty::Layout(0), 2), 3)));
+        assert!(matches!(
+            lay.fields[0].ty,
+            Ty::Array(Ty::Indirect(Ty::Layout(0)), 4)
+        ));
+        assert!(matches!(
+            lay.fields[1].ty,
+            Ty::Array(Ty::Array(Ty::Layout(0), 2), 3)
+        ));
     }
 
     #[test]
     fn layout_error() {
-        let err = LayoutBuilder::new()
-            .add_indirect()
-            .build()
-            .unwrap_err();
+        let err = LayoutBuilder::new().add_indirect().build().unwrap_err();
 
         assert_eq!(err, LayoutError::UnexpectedIndirection);
     }
